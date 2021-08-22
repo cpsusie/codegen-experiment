@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>codegen_lib</name>
+    </assembly>
+    <members>
+        <member name="M:Cjm.CodeGen.ReadOnlyEnumerableArray`1.GetHashCode">
+            <inheritdoc />
+        </member>
+        <member name="M:Cjm.CodeGen.ReadOnlyEnumerableArray`1.ToString">
+            <inheritdoc />
+        </member>
+        <member name="M:Cjm.CodeGen.RefEnumerableArray`1.GetHashCode">
+            <inheritdoc />
+        </member>
+        <member name="M:Cjm.CodeGen.RefEnumerableArray`1.ToString">
+            <inheritdoc />
+        </member>
+    </members>
+</doc>
