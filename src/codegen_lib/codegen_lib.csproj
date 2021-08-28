@@ -1,7 +1,7 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>netstandard2.0</TargetFramework>
     <Nullable>enable</Nullable>
     <RootNamespace>Cjm.CodeGen</RootNamespace>
     <Version>0.0.0.1-alpha</Version>
@@ -18,16 +18,19 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <WarningLevel>3</WarningLevel>
     <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
+    <LangVersion>9.0</LangVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <WarningLevel>3</WarningLevel>
     <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
     <DocumentationFile>L:\repos\codegen_exp\codegen_exp\codegen_lib\codegen_lib.xml</DocumentationFile>
+    <LangVersion>9.0</LangVersion>
     <NoWarn>1701;1702; 1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="HighPrecisionTimeStamps" Version="1.0.0.1" />
     <PackageReference Include="Microsoft.CodeAnalysis" Version="4.0.0-3.final" />
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.2">
       <PrivateAssets>all</PrivateAssets>
@@ -36,6 +39,7 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.0.0-3.final" />
     <PackageReference Include="NETStandard.Library" Version="2.0.3" />
     <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="true" />
+    <None Include="..\.editorconfig" Link=".editorconfig" />
   </ItemGroup>
 
 </Project>
