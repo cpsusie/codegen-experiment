@@ -4,7 +4,7 @@ namespace Cjm.CodeGen
 {
     public readonly struct
         ReadOnlyEnumerableArray<TITem> : ISpecificallyRefReadOnlyEnumerable<TITem, RefArrayEnumerator<TITem>>, IEquatable<ReadOnlyEnumerableArray<TITem>>
-        where TITem : struct
+            where TITem : struct
     {
         public static readonly ReadOnlyEnumerableArray<TITem> InvalidDefault = default;
 

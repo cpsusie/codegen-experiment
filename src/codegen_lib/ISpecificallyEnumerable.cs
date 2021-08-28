@@ -3,9 +3,17 @@
 
 namespace Cjm.CodeGen
 {
-    public interface IByRoRefEnumerator<T> : IEnumerator<T>
+    public interface INoDisposeEnumerator<out T>
     {
-        new  ref readonly T Current {  get; }        
+        T Current { get; }
+        bool MoveNext();
+        void Reset();
+    }
+
+    public interface IByRoRefEnumerator<T>  : INoDisposeEnumerator<T>
+    {
+        new ref readonly T Current {  get; }
+
     }
 
     public interface IByRefEnumerator<T> : IByRoRefEnumerator<T>
@@ -27,6 +35,11 @@ namespace Cjm.CodeGen
 
     public interface ISpecificallyRefReadOnlyEnumerable<TItem, TEnumerator>
         where TEnumerator : struct, IByRoRefEnumerator<TItem>
+    {
+        TEnumerator GetEnumerator();
+    }
+
+    public interface ISpecificallyClassEnumerable<TItem, TEnumerator> where TEnumerator : class, IEnumerator<TItem> 
     {
         TEnumerator GetEnumerator();
     }
