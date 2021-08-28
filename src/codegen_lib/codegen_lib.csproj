@@ -19,27 +19,36 @@
     <WarningLevel>3</WarningLevel>
     <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
     <LangVersion>9.0</LangVersion>
+    <DocumentationFile>./bin/Debug/codegen_lib.xml</DocumentationFile>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <WarningLevel>3</WarningLevel>
     <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
-    <DocumentationFile>L:\repos\codegen_exp\codegen_exp\codegen_lib\codegen_lib.xml</DocumentationFile>
+    <DocumentationFile>./bin/Release/codegen_lib.xml</DocumentationFile>
     <LangVersion>9.0</LangVersion>
     <NoWarn>1701;1702; 1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="HighPrecisionTimeStamps" Version="1.0.0.1" />
-    <PackageReference Include="Microsoft.CodeAnalysis" Version="4.0.0-3.final" />
+    <PackageReference Include="HighPrecisionTimeStamps" Version="1.0.0.1">
+      <IncludeAssets>all</IncludeAssets>
+      <IncludeInPackage>true</IncludeInPackage>
+      <GeneratePathProperty>true</GeneratePathProperty>
+    </PackageReference>
+    <PackageReference Include="Microsoft.CodeAnalysis" Version="4.0.0-3.final">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.2">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.0.0-3.final" />
-    <PackageReference Include="NETStandard.Library" Version="2.0.3" />
-    <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="true" />
+    <None Include="$(OutputPath)\*.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="true" />
+    <!--<None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="lib/netstandard2.0"/>-->
     <None Include="..\.editorconfig" Link=".editorconfig" />
+
   </ItemGroup>
 
 </Project>
