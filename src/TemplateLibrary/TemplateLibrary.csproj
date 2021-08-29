@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <Nullable>Enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="HighPrecisionTimeStamps" Version="1.0.0.1" />
+    <PackageReference Include="JetBrains.Annotations" Version="2021.2.0" />
+  </ItemGroup>
+
+</Project>

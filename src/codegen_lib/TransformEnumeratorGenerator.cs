@@ -1,7 +1,7 @@
 ﻿using System;
-using System.Data;
-using System.Linq;
 using System.Threading;
+using Cjm.CodeGen.Attributes;
+using LoggerLibrary;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -20,7 +20,7 @@ namespace Cjm.CodeGen
         /// <inheritdoc />
         public void Execute(GeneratorExecutionContext context)
         {
-            using var eel = Logger.CreateEel(nameof(TransformEnumeratorGenerator), nameof(Execute), context.ToString() ?? "NONE");
+            using var eel = LoggerSource.Logger.CreateEel(nameof(TransformEnumeratorGenerator), nameof(Execute), context.ToString() ?? "NONE");
             try
             {
                 CancellationToken token = context.CancellationToken;
@@ -29,20 +29,20 @@ namespace Cjm.CodeGen
                     ClassToAugment: { } augmentSyntax
                 })
                 {
-                    Logger.LogMessage($"Examining syntax: [{augmentSyntax.ToString()}]" );
+                    token.ThrowIfCancellationRequested();
+                    LoggerSource.Logger.LogMessage($"Examining syntax: [{augmentSyntax.ToString()}]" );
                 }
             }
             catch (OperationCanceledException)
             {
 
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                LoggerSource.Logger.LogException(ex);
                 throw;
             }
         }
-
-        private static readonly ICodeGenLogger Logger = CodeGenLogger.Logger;
     } 
 
     public sealed class EnableFastLinqClassDeclSyntaxReceiver : ISyntaxReceiver
@@ -51,9 +51,31 @@ namespace Cjm.CodeGen
 
         public void OnVisitSyntaxNode(SyntaxNode syntax)
         {
-            if (syntax is ClassDeclarationSyntax cds && IsPublicStaticClassDeclaration(cds) && HasFastLinkExtensionsAttribute(cds))
+            using var eel = LoggerSource.Logger.CreateEel(nameof(EnableFastLinqClassDeclSyntaxReceiver),
+                nameof(OnVisitSyntaxNode), syntax.ToString());
+            if (syntax is ClassDeclarationSyntax cds)
             {
-                ClassToAugment = cds;
+                //LoggerSource.Logger.LogMessage($"Examining class declaration syntax: [{cds.ToString()}].");
+                bool isPublicStatic = IsPublicStaticClassDeclaration(cds);
+                bool hasFastLinkExtensionAttribute = HasFastLinkExtensionsAttribute(cds);
+                /*LoggerSource.Logger.LogMessage("\tThe class " + ((isPublicStatic, hasFastLinkExtensionAttribute) switch
+                {
+                    (false, false) => "is not public static and does not have the fast link extension attribute.",
+                    (false, true) => "is not public static but does have the fast link extension attribute.",
+                    (true, false) => "is public static but does not have the fast link extension attribute.",
+                    (true, true) => "is public static and does have the fast link extension attribute.",
+                    
+                }));*/
+//#if DEBUG
+//                if (isPublicStatic)
+//                    Debugger.Launch();
+//#endif
+                if (isPublicStatic && hasFastLinkExtensionAttribute)
+                {
+                    ClassToAugment = cds;
+                    LoggerSource.Logger.LogMessage(
+                        $"\t Class declaration syntax {cds} is selected for semantic analysis.");
+                }
             }
         }
 
@@ -88,11 +110,17 @@ namespace Cjm.CodeGen
             {
                 foreach (var attrib in attribList.Attributes)
                 {
-                    if (attrib.Name.Span.ToString() == FastLinqExtensionsAttribute.ShortName)
+                    
+                    if (attrib.Name.ToString() == FastLinqExtensionsAttribute.ShortName)
                         return true;
                 }
             }
             return false;
         }
+    }
+
+    internal static class LoggerSource
+    {
+        public static readonly ICodeGenLogger Logger = CodeGenLogger.Logger;
     }
 }

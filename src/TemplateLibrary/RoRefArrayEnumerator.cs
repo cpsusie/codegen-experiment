@@ -2,7 +2,7 @@
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 
-namespace Cjm.CodeGen
+namespace TemplateLibrary
 {
     [SuppressMessage("ReSharper", "NonReadonlyMemberInGetHashCode")]
     public struct RoRefArrayEnumerator<T> : IByRoRefEnumerator<T>, IEquatable<RoRefArrayEnumerator<T>> where T : struct

@@ -1,5 +1,5 @@
 ﻿
-namespace Cjm.CodeGen
+namespace TemplateLibrary
 {
     public class TestClass
     {

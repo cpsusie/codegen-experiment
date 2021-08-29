@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
 
-namespace Cjm.CodeGen
+namespace TemplateLibrary
 {
     [SuppressMessage("ReSharper", "NonReadonlyMemberInGetHashCode")]
     public struct RefArrayEnumerator<T> : IByRefEnumerator<T>, IEquatable<RefArrayEnumerator<T>> where T : struct

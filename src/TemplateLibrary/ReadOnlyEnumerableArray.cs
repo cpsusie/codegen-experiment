@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Cjm.CodeGen
+namespace TemplateLibrary
 {
     public readonly struct
         ReadOnlyEnumerableArray<TITem> : ISpecificallyRefReadOnlyEnumerable<TITem, RefArrayEnumerator<TITem>>, IEquatable<ReadOnlyEnumerableArray<TITem>>

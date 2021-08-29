@@ -1,7 +1,8 @@
 ﻿using System.Collections.Generic;
+
 // ReSharper disable NonReadonlyMemberInGetHashCode
 
-namespace Cjm.CodeGen
+namespace TemplateLibrary
 {
     public interface INoDisposeEnumerator<out T>
     {

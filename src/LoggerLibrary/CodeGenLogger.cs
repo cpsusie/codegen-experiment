@@ -1,22 +1,33 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 using MonotonicContext = HpTimeStamps.MonotonicStampContext;
 using Duration = HpTimeStamps.Duration;
-namespace Cjm.CodeGen
+namespace LoggerLibrary
 {
     using MonotonicStamp = HpTimeStamps.MonotonicTimeStamp<MonotonicContext>;
     using MonotonicSource = HpTimeStamps.MonotonicTimeStampUtil<MonotonicContext>;
 
-    internal static class CodeGenLogger
+    public static partial class CodeGenLogger
     {
-        public const string FilePath = "CodeGenLog.txt";
+        //public const string FilePath = "CodeGenLog.txt";
+        public const string FilePath = @"L:\Desktop\CodeGenLog.txt";
+        public static ICodeGenLogger Logger => TheLogger.Value;
+        public static bool IsLoggerAlreadySet => TheLogger.IsSet;
+        
+        static ICodeGenLogger InitLogger() => CodeGenLogImpl.CreateLogger(FilePath);
 
-        public static ICodeGenLogger Logger { get; } = CodeGenLogImpl.CreateLogger(FilePath);
+        private static readonly LocklessLazyWriteOnce<ICodeGenLogger> TheLogger = new LocklessLazyWriteOnce<ICodeGenLogger>(InitLogger);
+    }
 
-        sealed class CodeGenLogImpl : ICodeGenLogger
+    #region Nested Impl Def
+    partial class CodeGenLogger
+    {
+        private sealed class CodeGenLogImpl : ICodeGenLogger
         {
             internal static ICodeGenLogger CreateLogger(string fileName)
             {
@@ -45,11 +56,18 @@ namespace Cjm.CodeGen
 
             }
 
-            public bool IsGood => _threadStart.IsSet && !_threadEnd.IsSet && !_disposed.IsSet;
+            public bool IsGood => _threadStart.IsSet && !_threadEnd.IsSet && !_disposed.IsSet && !_faulted.IsSet;
 
+            /// <inheritdoc />
+            public event EventHandler<MonotonicStampedEventArgs>? Faulted;
+
+            /// <inheritdoc />
+            public event EventHandler<MonotonicStampedEventArgs>? ThreadStopped;
+            
             public bool IsDisposed => _disposed.IsSet;
 
             /// <inheritdoc />
+            [SuppressMessage("ReSharper", "ConstantNullCoalescingCondition")]
             public EntryExitLog CreateEel(string type, string method, string extraInfo)
             {
                 return new EntryExitLog(type ?? "UNKNOWN TYPE", method ?? "UNKNOWN METHOD", extraInfo ?? "NO MESSAGE",
@@ -65,7 +83,7 @@ namespace Cjm.CodeGen
                     {
                         _logCollection.Add(lm);
                     }
-                    catch 
+                    catch
                     {
                         //eat it
                     }
@@ -75,34 +93,22 @@ namespace Cjm.CodeGen
             /// <inheritdoc />
             public void LogMessage(string message)
             {
-                LogMessage lm = CodeGen.LogMessage.CreateMessageLog(message);
+                LogMessage lm = LoggerLibrary.LogMessage.CreateMessageLog(message);
                 Log(in lm);
             }
 
             /// <inheritdoc />
             public void LogError(string error)
             {
-                LogMessage lm = CodeGen.LogMessage.CreateErrorLog(error);
+                LogMessage lm = LoggerLibrary.LogMessage.CreateErrorLog(error);
                 Log(in lm);
             }
 
             /// <inheritdoc />
             public void LogException(Exception error)
             {
-                LogMessage lm = CodeGen.LogMessage.CreateExceptionLog(error);
+                LogMessage lm = LoggerLibrary.LogMessage.CreateExceptionLog(error);
                 Log(in lm);
-            }
-
-            private void ThrowIfDisposed()
-            {
-                if (_disposed.IsSet)
-                    throw new ObjectDisposedException(nameof(CodeGenLogImpl));
-            }
-
-            private void ThrowIfFaulted()
-            {
-                if (_threadEnd.IsSet)
-                    throw new InvalidOperationException("The thread is faulted.");
             }
 
             public void Dispose() => Dispose(true);
@@ -118,6 +124,7 @@ namespace Cjm.CodeGen
                     _t.Join();
                     _cts.Dispose();
                     _logCollection.Dispose();
+                    _eventPump.Dispose();
                 }
             }
             private void ThreadLoop(object? ctObj)
@@ -139,14 +146,73 @@ namespace Cjm.CodeGen
                 {
 
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    throw;
+                    if (_faulted.TrySet())
+                    {
+                        OnFaulted($"The logger has entered a faulted state and cannot be used.  Exception: [{ex}]");
+                    }
                 }
+                
                 finally
                 {
-                    _threadEnd.TrySet();
+                    if (_threadEnd.TrySet())
+                    {
+                        OnThreadStopped("The logger just shut down.");
+                    }
                 }
+            }
+
+            private void OnFaulted(string s)
+            {
+                MonotonicStampedEventArgs args = new MonotonicStampedEventArgs(s);
+                bool doOnEventPump = _eventPump.IsGood;
+                bool doOnThreadPool = !doOnEventPump;
+
+                if (doOnEventPump)
+                {
+                    try
+                    {
+                        _eventPump.RaiseEvent(DoIt);
+                    }
+                    catch
+                    {
+                        doOnThreadPool = true;
+                    }
+                }
+
+                if (doOnThreadPool)
+                {
+                    Task.Run(DoIt);
+                }
+
+                void DoIt() => Faulted?.Invoke(this, args);
+            }
+
+            private void OnThreadStopped(string s)
+            {
+                MonotonicStampedEventArgs args = new MonotonicStampedEventArgs(s);
+                bool doOnEventPump = _eventPump.IsGood;
+                bool doOnThreadPool = !doOnEventPump;
+
+                if (doOnEventPump)
+                {
+                    try
+                    {
+                        _eventPump.RaiseEvent(DoIt);
+                    }
+                    catch
+                    {
+                        doOnThreadPool = true;
+                    }
+                }
+
+                if (doOnThreadPool)
+                {
+                    Task.Run(DoIt);
+                }
+
+                void DoIt() => ThreadStopped?.Invoke(this, args);
             }
 
             private void Log(in LogMessage lm, CancellationToken token)
@@ -213,8 +279,10 @@ namespace Cjm.CodeGen
                 _logCollection = new BlockingCollection<LogMessage>(new ConcurrentQueue<LogMessage>());
                 _t = new Thread(ThreadLoop)
                     { Name = "LogThread", IsBackground = true, Priority = ThreadPriority.BelowNormal };
+                _eventPump = EventPumpFactorySource.FactoryInstance("LoggerEventPump");
             }
 
+            private readonly IEventPump _eventPump;
             private readonly int _maxLogAttempts = 3;
             private readonly FileInfo _logFile;
             private LocklessSetOnlyRefStr _disposed;
@@ -222,8 +290,13 @@ namespace Cjm.CodeGen
             private readonly Thread _t;
             private LocklessSetOnlyRefStr _threadStart;
             private LocklessSetOnlyRefStr _threadEnd;
+            private LocklessSetOnlyRefStr _faulted;
             private readonly BlockingCollection<LogMessage> _logCollection;
+
+           
         }
-    }
-    
+
+    } 
+    #endregion
+
 }

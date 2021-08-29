@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace Cjm.CodeGen
+namespace TemplateLibrary
 {
     public readonly struct ListOfTEnumerable<T> : ISpecificallyStructEnumerable<T, List<T>.Enumerator>
     {

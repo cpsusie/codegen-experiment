@@ -4,7 +4,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <Nullable>enable</Nullable>
     <RootNamespace>Cjm.CodeGen</RootNamespace>
-    <Version>0.0.0.1-alpha</Version>
+    <Version>0.0.0.7-alpha</Version>
     <Authors>Christopher P. Susie</Authors>
     <Company>CJM Screws, LLC</Company>
     <Product>CodeGenLibrary</Product>
@@ -13,12 +13,14 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+        <LangVersion>9.0</LangVersion>
+      <Nullable>enable</Nullable>
+      <AssemblyVersion>0.0.0.5</AssemblyVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <WarningLevel>3</WarningLevel>
     <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
-    <LangVersion>9.0</LangVersion>
     <DocumentationFile>./bin/Debug/codegen_lib.xml</DocumentationFile>
   </PropertyGroup>
 
@@ -26,7 +28,6 @@
     <WarningLevel>3</WarningLevel>
     <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
     <DocumentationFile>./bin/Release/codegen_lib.xml</DocumentationFile>
-    <LangVersion>9.0</LangVersion>
     <NoWarn>1701;1702; 1591</NoWarn>
   </PropertyGroup>
 
@@ -36,19 +37,25 @@
       <IncludeInPackage>true</IncludeInPackage>
       <GeneratePathProperty>true</GeneratePathProperty>
     </PackageReference>
-    <PackageReference Include="Microsoft.CodeAnalysis" Version="4.0.0-3.final">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.2">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.0.0-3.final" />
-    <None Include="$(OutputPath)\*.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="true" />
+    <PackageReference Include="Microsoft.CodeAnalysis" Version="3.11.0" />
+    <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="true" />
+    <None Include="$(PkgHighPrecisionTimeStamps)\lib\netstandard2.0\*.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Include="$(PkgHighPrecisionTimeStamps)\lib\netstandard2.0\*.dll" Pack="true" PackagePath="lib/netstandard2.0/" Visible="true" />
+    <None Include="$(OutputPath)\LoggerLibrary.dll" Pack="true" PackagePath="analyzers/dotnet/cs" PrivateAssets="all" Visible="false" />
+    <None Include="$(OutputPath)\LoggerLibrary.dll" Pack="true" PackagePath="lib/netstandard2.0/" PrivateAssets="all" Visible="false" />
     <!--<None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="lib/netstandard2.0"/>-->
     <None Include="..\.editorconfig" Link=".editorconfig" />
 
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LoggerLibrary\LoggerLibrary.csproj" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="true">
+      <IncludeAssets>all</IncludeAssets>
+      <ReferenceOutputAssembly>true</ReferenceOutputAssembly>
+      <Private>true</Private>
+      <Link>LoggerLibrary</Link>
+      <CopyLocalSatelliteAssemblies>true</CopyLocalSatelliteAssemblies>
+    </ProjectReference>
   </ItemGroup>
 
 </Project>

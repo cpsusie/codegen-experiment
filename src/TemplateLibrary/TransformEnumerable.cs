@@ -1,10 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace Cjm.CodeGen
+namespace TemplateLibrary
 {
     public delegate TOutput TransformRoRefIn<TInput, TOutput>(in TInput input) where TInput : struct;
 

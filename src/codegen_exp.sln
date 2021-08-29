@@ -10,6 +10,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.editorconfig = .editorconfig
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TemplateLibrary", "TemplateLibrary\TemplateLibrary.csproj", "{172EBC1A-9DE1-4121-8D49-097B30C86DA2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LoggerLibrary", "LoggerLibrary\LoggerLibrary.csproj", "{422B34B8-11C2-4F0B-A331-E9BD65A9C460}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,6 +24,14 @@ Global
 		{4322AA00-65CF-4CBD-9ACF-98925A7CFCFD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4322AA00-65CF-4CBD-9ACF-98925A7CFCFD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4322AA00-65CF-4CBD-9ACF-98925A7CFCFD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{172EBC1A-9DE1-4121-8D49-097B30C86DA2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{172EBC1A-9DE1-4121-8D49-097B30C86DA2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{172EBC1A-9DE1-4121-8D49-097B30C86DA2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{172EBC1A-9DE1-4121-8D49-097B30C86DA2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{422B34B8-11C2-4F0B-A331-E9BD65A9C460}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{422B34B8-11C2-4F0B-A331-E9BD65A9C460}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{422B34B8-11C2-4F0B-A331-E9BD65A9C460}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{422B34B8-11C2-4F0B-A331-E9BD65A9C460}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
