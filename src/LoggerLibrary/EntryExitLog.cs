@@ -25,13 +25,14 @@ namespace LoggerLibrary
         
         internal EntryExitLog(string typeName, string methodName, string message, ICodeGenLogger logger)
         {
+            var now = MonotonicSource.StampNow;
             _typeName = typeName;
             _methodName = methodName;
             _message = message;
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _disposed = default;
-            _entryTime = MonotonicSource.StampNow;
-            _exitTime = MonotonicSource.StampNow;
+            _entryTime = now;
+            _exitTime = now;
             _logger.Log(new LogMessage(this));
         }
 
