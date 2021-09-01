@@ -26,7 +26,7 @@ namespace LoggerLibrary
             _exception = null;
             EntryTime = lm.StartTime;
             TimePeriod = lm.Elapsed ?? Duration.Zero;
-            _message = TimePeriod == null ? $"{EntryTime.ToString()} ENTRY\t\tType: {lm.TypeName}\tMethod: {lm.MethodName}\tMessage: {lm.Message}." : $"{lm.EndTime.ToString()} EXIT\t\tType: {lm.TypeName}\tMethod: {lm.MethodName}\tDuration: {TimePeriod.Value.TotalMilliseconds:N4} milliseconds.";
+            _message = TimePeriod <= Duration.Zero ? $"{EntryTime.ToString()} ENTRY\t\tType: {lm.TypeName}\tMethod: {lm.MethodName}\tMessage: {lm.Message}." : $"{lm.EndTime.ToString()} EXIT\t\tType: {lm.TypeName}\tMethod: {lm.MethodName}\tDuration: {TimePeriod.Value.TotalMilliseconds:N4} milliseconds.";
             TypeOfLog = LogType.EntryExit;
         }
 
