@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading;
 using Cjm.CodeGen.Attributes;
+using Cjm.CodeGen.Exceptions;
 using LoggerLibrary;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -14,6 +15,8 @@ namespace Cjm.CodeGen
         /// <inheritdoc />
         public void Initialize(GeneratorInitializationContext context)
         {
+            using var eel = LoggerSource.Logger.CreateEel(nameof(TransformEnumeratorGenerator), nameof(Initialize),
+                context.ToString());
             context.RegisterForSyntaxNotifications(() => new EnableFastLinqClassDeclSyntaxReceiver());
         }
 
@@ -26,11 +29,42 @@ namespace Cjm.CodeGen
                 CancellationToken token = context.CancellationToken;
                 if (context.SyntaxReceiver is EnableFastLinqClassDeclSyntaxReceiver
                 {
-                    ClassToAugment: { } augmentSyntax
+                    ClassToAugment: { } augmentSyntax,
+                    AttribSyntax: {} attribSyntax
                 })
                 {
+//#if DEBUG
+//                    Debugger.Launch();
+//#endif
                     token.ThrowIfCancellationRequested();
-                    LoggerSource.Logger.LogMessage($"Examining syntax: [{augmentSyntax.ToString()}]" );
+                    LoggerSource.Logger.LogMessage($"Examining attribute syntax [{attribSyntax.ToString()}] from type decl syntax: [{augmentSyntax.ToString()}]" );
+                    var tree = attribSyntax.Parent?.SyntaxTree;
+                    if (tree != null)
+                    {
+                        var model = context.Compilation.GetSemanticModel(tree, true);
+                        INamedTypeSymbol? fastLinqEnableAttribute =
+                            context.Compilation.GetTypeByMetadataName(typeof(FastLinqExtensionsAttribute).FullName);
+                        if (fastLinqEnableAttribute == null)
+                        {
+                            throw new CannotFindAttributeSymbolException(typeof(FastLinqExtensionsAttribute),
+                                typeof(FastLinqExtensionsAttribute).FullName);
+                        }
+                        SymbolInfo symbolInfo = model.GetSymbolInfo(attribSyntax);
+                        LoggerSource.Logger.LogMessage($"Examining symbol info ({symbolInfo}.");
+                        if (symbolInfo.Symbol is IMethodSymbol ms && ms.MethodKind == MethodKind.Constructor && ms.ReceiverType is INamedTypeSymbol nts && SymbolEqualityComparer.Default.Equals(nts, fastLinqEnableAttribute))
+                        {
+                            LoggerSource.Logger.LogMessage($"The type {augmentSyntax.Identifier} is decorated with the {nts.Name} attribute.");
+                        }
+                        else
+                        {
+                            LoggerSource.Logger.LogMessage("Couldn't find attribute symbol.");
+                        }
+                    }
+                    else
+                    {
+                        LoggerSource.Logger.LogMessage($"{attribSyntax} has a null parent tree.");
+                    }
+                              
                 }
             }
             catch (OperationCanceledException)
@@ -43,21 +77,25 @@ namespace Cjm.CodeGen
                 throw;
             }
         }
+
+        
     } 
 
     public sealed class EnableFastLinqClassDeclSyntaxReceiver : ISyntaxReceiver
     {
         public ClassDeclarationSyntax? ClassToAugment { get; private set; }
+        public AttributeSyntax? AttribSyntax { get; private set; }
 
         public void OnVisitSyntaxNode(SyntaxNode syntax)
         {
-            using var eel = LoggerSource.Logger.CreateEel(nameof(EnableFastLinqClassDeclSyntaxReceiver),
-                nameof(OnVisitSyntaxNode), syntax.ToString());
+            //using var eel = LoggerSource.Logger.CreateEel(nameof(EnableFastLinqClassDeclSyntaxReceiver),
+            //    nameof(OnVisitSyntaxNode), syntax.ToString());
             if (syntax is ClassDeclarationSyntax cds)
             {
                 //LoggerSource.Logger.LogMessage($"Examining class declaration syntax: [{cds.ToString()}].");
                 bool isPublicStatic = IsPublicStaticClassDeclaration(cds);
-                bool hasFastLinkExtensionAttribute = HasFastLinkExtensionsAttribute(cds);
+                var fastLinkAttributeSyntax = FindFastLinkExtensionsAttribute(cds);
+                bool hasFastLinkExtensionAttribute = fastLinkAttributeSyntax != null;
                 /*LoggerSource.Logger.LogMessage("\tThe class " + ((isPublicStatic, hasFastLinkExtensionAttribute) switch
                 {
                     (false, false) => "is not public static and does not have the fast link extension attribute.",
@@ -73,8 +111,9 @@ namespace Cjm.CodeGen
                 if (isPublicStatic && hasFastLinkExtensionAttribute)
                 {
                     ClassToAugment = cds;
+                    AttribSyntax = fastLinkAttributeSyntax;
                     LoggerSource.Logger.LogMessage(
-                        $"\t Class declaration syntax {cds} is selected for semantic analysis.");
+                        $"\t Class declaration syntax {cds} is selected for semantic analysis with attribute {fastLinkAttributeSyntax}.");
                 }
             }
         }
@@ -104,7 +143,7 @@ namespace Cjm.CodeGen
             return foundStatic && foundPublic;
         }
 
-        static bool HasFastLinkExtensionsAttribute(ClassDeclarationSyntax cds)
+        static AttributeSyntax? FindFastLinkExtensionsAttribute(ClassDeclarationSyntax cds)
         {
             foreach (var attribList in cds.AttributeLists)
             {
@@ -112,10 +151,10 @@ namespace Cjm.CodeGen
                 {
                     
                     if (attrib.Name.ToString() == FastLinqExtensionsAttribute.ShortName)
-                        return true;
+                        return attrib;
                 }
             }
-            return false;
+            return null;
         }
     }
 

@@ -43,7 +43,7 @@ namespace TemplateLibrary
         where TRoRefInEnumerator : struct, IByRoRefEnumerator<TItemIn>
         where TRoRefEnumerable : ISpecificallyRefReadOnlyEnumerable<TItemIn, TRoRefInEnumerator>
         where TItemIn : struct
-        where TItemOut : class
+        where TItemOut : class 
     {
         public readonly TItemOut? Current => _out;
 
