@@ -33,7 +33,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="HighPrecisionTimeStamps" Version="1.0.0.1">
+    <PackageReference Include="HighPrecisionTimeStamps" Version="1.0.0.2">
       <IncludeAssets>all</IncludeAssets>
       <IncludeInPackage>true</IncludeInPackage>
       <GeneratePathProperty>true</GeneratePathProperty>

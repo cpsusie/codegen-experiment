@@ -14,6 +14,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TemplateLibrary", "Template
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LoggerLibrary", "LoggerLibrary\LoggerLibrary.csproj", "{422B34B8-11C2-4F0B-A331-E9BD65A9C460}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TemplateLibraryTester", "TemplateLibraryTester\TemplateLibraryTester.csproj", "{0E409E08-E55E-4C9B-B0F8-5CA89AFD795C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -32,6 +34,10 @@ Global
 		{422B34B8-11C2-4F0B-A331-E9BD65A9C460}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{422B34B8-11C2-4F0B-A331-E9BD65A9C460}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{422B34B8-11C2-4F0B-A331-E9BD65A9C460}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0E409E08-E55E-4C9B-B0F8-5CA89AFD795C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0E409E08-E55E-4C9B-B0F8-5CA89AFD795C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0E409E08-E55E-4C9B-B0F8-5CA89AFD795C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0E409E08-E55E-4C9B-B0F8-5CA89AFD795C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
