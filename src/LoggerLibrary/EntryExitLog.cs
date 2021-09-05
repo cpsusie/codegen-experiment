@@ -23,7 +23,7 @@ namespace LoggerLibrary
         public readonly string MethodName => _methodName ?? "UNKNOWN";
         public readonly string Message => _message ?? "NONE";
         
-        internal EntryExitLog(string typeName, string methodName, string message, ICodeGenLogger logger)
+        public EntryExitLog(string typeName, string methodName, string message, ICodeGenLogger logger)
         {
             var now = MonotonicSource.StampNow;
             _typeName = typeName;

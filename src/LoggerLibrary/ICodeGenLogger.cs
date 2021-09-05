@@ -1,11 +1,10 @@
 ﻿using System;
-using System.Runtime.Serialization;
 using MonotonicContext = HpTimeStamps.MonotonicStampContext;
 namespace LoggerLibrary
 {
     using MonotonicStamp = HpTimeStamps.MonotonicTimeStamp<MonotonicContext>;
     using MonoStampSource = HpTimeStamps.MonotonicTimeStampUtil<MonotonicContext>;
-    using PortableMonotonicStamp = HpTimeStamps.PortableMonotonicStamp;
+
     public interface ICodeGenLogger : IDisposable
     {
         event EventHandler<MonotonicStampedEventArgs> Faulted;

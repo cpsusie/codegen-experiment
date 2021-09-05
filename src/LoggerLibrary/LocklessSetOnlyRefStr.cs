@@ -2,7 +2,7 @@
 
 namespace LoggerLibrary
 {
-    internal struct LocklessSetOnlyRefStr
+    public struct LocklessSetOnlyRefStr
     {
         public bool IsSet
         {

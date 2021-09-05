@@ -2,59 +2,52 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using LoggerLibrary;
+using Xunit.Abstractions;
 using MonotonicContext = HpTimeStamps.MonotonicStampContext;
 using Duration = HpTimeStamps.Duration;
-namespace LoggerLibrary
+namespace SourceGeneratorUnitTests
 {
     using MonotonicStamp = HpTimeStamps.MonotonicTimeStamp<MonotonicContext>;
     using MonotonicSource = HpTimeStamps.MonotonicTimeStampUtil<MonotonicContext>;
-
-    public static partial class CodeGenLogger
+    static class AlternateLoggerSource
     {
-        //public const string FilePath = "CodeGenLog.txt";
-        public const string FilePath = @"L:\Desktop\CodeGenLog.txt";
-        public static ICodeGenLogger Logger => TheLogger.Value;
-        public static bool IsLoggerAlreadySet => TheLogger.IsSet;
-
-        public static void SupplyAlternateLoggerOrThrow(ICodeGenLogger logger)
+        public static void InjectAlternateLogger(ITestOutputHelper helper)
         {
-            if (logger == null) throw new ArgumentNullException(nameof(logger));
-            if (!TheLogger.TrySetAlternateValue(logger))
+            ICodeGenLogger? logger = null;
+            try
             {
-                throw new InvalidOperationException("The logger has already been set.");
+                if (_setOnce.TrySet())
+                {
+                    logger = AlternateLogger.CreateLogger(helper);
+                    CodeGenLogger.SupplyAlternateLoggerOrThrow(logger!);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex);
+                logger?.Dispose();
+                
             }
         }
 
-        static ICodeGenLogger InitLogger() => CodeGenLogImpl.CreateLogger(FilePath);
-
-        private static readonly LocklessLazyWriteOnce<ICodeGenLogger> TheLogger = new LocklessLazyWriteOnce<ICodeGenLogger>(InitLogger);
-    }
-
-    #region Nested Impl Def
-    partial class CodeGenLogger
-    {
-        private sealed class CodeGenLogImpl : ICodeGenLogger
+        sealed class AlternateLogger : ICodeGenLogger
         {
-            internal static ICodeGenLogger CreateLogger(string fileName)
+            internal static ICodeGenLogger CreateLogger([JetBrains.Annotations.NotNull] ITestOutputHelper helper)
             {
-                if (fileName == null)
-                {
-                    throw new ArgumentNullException(nameof(fileName));
-                }
-                CodeGenLogImpl? ret = null;
+                if (helper == null) throw new ArgumentNullException(nameof(helper));
+                AlternateLogger? ret = null;
                 try
                 {
-                    ret = new CodeGenLogImpl(fileName);
+                    ret = new AlternateLogger(helper);
                     ret._t.Start(ret._cts.Token);
                     MonotonicStamp quitAfter = MonotonicSource.StampNow + Duration.FromSeconds(2);
                     while (MonotonicSource.StampNow <= quitAfter && !ret._threadStart.IsSet)
                     {
                         Thread.Sleep(TimeSpan.FromMilliseconds(25));
                     }
-                    Debug.WriteLine($"Log file at: [{ret._logFile.FullName}].");
                     return ret;
                 }
                 catch (Exception)
@@ -72,7 +65,7 @@ namespace LoggerLibrary
 
             /// <inheritdoc />
             public event EventHandler<MonotonicStampedEventArgs>? ThreadStopped;
-            
+
             public bool IsDisposed => _disposed.IsSet;
 
             /// <inheritdoc />
@@ -162,7 +155,7 @@ namespace LoggerLibrary
                         OnFaulted($"The logger has entered a faulted state and cannot be used.  Exception: [{ex}]");
                     }
                 }
-                
+
                 finally
                 {
                     if (_threadEnd.TrySet())
@@ -234,10 +227,8 @@ namespace LoggerLibrary
                 {
                     try
                     {
-                        using var sr = _logFile.AppendText();
-                        sr.WriteLine(text);
+                        _helper.WriteLine(text!);
                         loggedIt = true;
-                        Debug.WriteLine(text);
                     }
                     catch (OperationCanceledException)
                     {
@@ -276,24 +267,19 @@ namespace LoggerLibrary
                 }
             }
 
-            private CodeGenLogImpl(string fileName)
+            private AlternateLogger(ITestOutputHelper helper)
             {
-                _logFile = new FileInfo(fileName);
-                if (_logFile.Exists && _logFile.IsReadOnly)
-                {
-                    throw new IOException($"The log file specified {fileName} is readonly.");
-                }
-
+                _helper = helper ?? throw new ArgumentNullException(nameof(helper));
                 _cts = new CancellationTokenSource();
                 _logCollection = new BlockingCollection<LogMessage>(new ConcurrentQueue<LogMessage>());
                 _t = new Thread(ThreadLoop)
-                    { Name = "LogThread", IsBackground = true, Priority = ThreadPriority.BelowNormal };
+                { Name = "LogThread", IsBackground = true, Priority = ThreadPriority.BelowNormal };
                 _eventPump = EventPumpFactorySource.FactoryInstance("LoggerEventPump");
             }
 
+            private readonly ITestOutputHelper _helper;
             private readonly IEventPump _eventPump;
             private readonly int _maxLogAttempts = 3;
-            private readonly FileInfo _logFile;
             private LocklessSetOnlyRefStr _disposed;
             private readonly CancellationTokenSource _cts;
             private readonly Thread _t;
@@ -302,10 +288,11 @@ namespace LoggerLibrary
             private LocklessSetOnlyRefStr _faulted;
             private readonly BlockingCollection<LogMessage> _logCollection;
 
-           
+
         }
 
-    } 
-    #endregion
+        private static LocklessSetOnlyFlag _setOnce;
+    }
 
+    
 }

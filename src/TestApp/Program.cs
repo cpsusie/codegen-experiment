@@ -11,4 +11,9 @@ namespace TestApp
             Console.WriteLine("Hello World!");
         }
     }
+
+    public static partial class ListOfPortableDurationExtender<List<PortableDuration>>
+    {
+
+    }
 }
