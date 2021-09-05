@@ -4,6 +4,36 @@ using System.Threading;
 
 namespace LoggerLibrary
 {
+    public struct LocklessSetOnlyFlag
+    {
+        public readonly bool IsSet
+        {
+            get
+            {
+                int val = _value;
+                return val == Set;
+            }
+        }
+
+        public bool TrySet()
+        {
+            return Interlocked.CompareExchange(ref _value, Set, NotSet) == NotSet;
+        }
+
+        public void SetOrThrow()
+        {
+            bool set = TrySet();
+            if (!set)
+            {
+                throw new InvalidOperationException("The flag has already been set.");
+            }
+        }
+
+        private volatile int _value;
+        private const int NotSet = 0;
+        private const int Set = 1;
+    }
+
     internal sealed class LocklessLazyWriteOnce<T> where T : class
     {
         public T Value
