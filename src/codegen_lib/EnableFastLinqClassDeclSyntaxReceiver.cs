@@ -15,7 +15,7 @@ namespace Cjm.CodeGen
             if (syntax is ClassDeclarationSyntax cds)
             {
                 //LoggerSource.Logger.LogMessage($"Examining class declaration syntax: [{cds.ToString()}].");
-                bool isPublicStatic = IsPublicStaticClassDeclaration(cds);
+                bool isPublicStatic = IsPublicStaticPartialClassDeclaration(cds);
                 var fastLinkAttributeSyntax = FindExtensionsAttribute(cds, FastLinqExtensionsAttribute.ShortName);
                 bool hasFastLinkExtensionAttribute = fastLinkAttributeSyntax != null;
                 /*LoggerSource.Logger.LogMessage("\tThe class " + ((isPublicStatic, hasFastLinkExtensionAttribute) switch

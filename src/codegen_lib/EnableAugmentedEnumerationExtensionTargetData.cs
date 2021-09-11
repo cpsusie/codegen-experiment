@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using JetBrains.Annotations;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Cjm.CodeGen
 {
     public readonly struct EnableAugmentedEnumerationExtensionTargetData : ITargetData,
-        IEquatable<EnableAugmentedEnumerationExtensionTargetData>
+        IEquatable<EnableAugmentedEnumerationExtensionTargetData>, IHasGenericByRefRoEqComparer<EnableAugmentedEnumerationExtensionTargetData.EqComp, EnableAugmentedEnumerationExtensionTargetData>
     {
         public static EnableAugmentedEnumerationExtensionTargetData CreateTargetData(TypeOfExpressionSyntax tos,
             ClassDeclarationSyntax cds, AttributeSyntax ats) => new(
@@ -43,6 +45,10 @@ namespace Cjm.CodeGen
         }
 
         /// <inheritdoc />
+        public EqComp GetComparer() => default;
+       
+
+        /// <inheritdoc />
         public override bool Equals(object? obj) =>
             obj is EnableAugmentedEnumerationExtensionTargetData eatd && eatd == this;
         public bool Equals(EnableAugmentedEnumerationExtensionTargetData other) => other == this;
@@ -52,7 +58,41 @@ namespace Cjm.CodeGen
             $"{nameof(EnableAugmentedEnumerationExtensionTargetData)} -- {nameof(ClassToAugment)}: {ClassToAugment.Identifier.Text}; " +
             $"{nameof(AttributeSyntax)}: {AttributeSyntax.Name}; {nameof(AttributeTargetDataSyntax)}: " +
             $"{AttributeTargetDataSyntax.Type}.";
-        
+
+
+        public readonly struct EqComp : IByRoRefEqualityComparer<EnableAugmentedEnumerationExtensionTargetData>
+        {
+
+            public static implicit operator ByRoRefEqTest<EnableAugmentedEnumerationExtensionTargetData>(EqComp _) =>
+                TheEqualityTest;
+
+            public static implicit operator ByRoRefHasher<EnableAugmentedEnumerationExtensionTargetData>(EqComp _) =>
+                TheHasher;
+
+            /// <inheritdoc />
+            [Pure]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public bool Equals(in EnableAugmentedEnumerationExtensionTargetData lhs,
+                in EnableAugmentedEnumerationExtensionTargetData rhs)
+                => lhs == rhs;
+
+            /// <inheritdoc />
+            public int GetHashCode(in EnableAugmentedEnumerationExtensionTargetData val)
+                => val.GetHashCode();
+
+            static EqComp()
+            {
+                var comp = default(EqComp);
+                TheEqualityTest =
+                (in EnableAugmentedEnumerationExtensionTargetData lhs,
+                    in EnableAugmentedEnumerationExtensionTargetData rhs) => comp.Equals(in lhs, in rhs);
+                TheHasher = (in EnableAugmentedEnumerationExtensionTargetData obj) => comp.GetHashCode(in obj);
+
+            }
+
+            private static readonly ByRoRefEqTest<EnableAugmentedEnumerationExtensionTargetData> TheEqualityTest;
+            private static readonly ByRoRefHasher<EnableAugmentedEnumerationExtensionTargetData> TheHasher;
+        }
 
         private readonly EnableFastLinkExtensionsTargetData _base;
         private static readonly EqualityComparer<TypeOfExpressionSyntax> TheTpsComparer = EqualityComparer<TypeOfExpressionSyntax>.Default;

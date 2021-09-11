@@ -1,17 +1,49 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Threading;
 using Cjm.CodeGen.Attributes;
 using Cjm.CodeGen.Exceptions;
+using HpTimeStamps;
+using LoggerLibrary;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-
+using MonotonicContext = HpTimeStamps.MonotonicStampContext;
 
 namespace Cjm.CodeGen
 {
     [Generator]
-    public sealed class TransformEnumeratorGenerator : ISourceGenerator
+    public sealed class TransformEnumeratorGenerator : ISourceGenerator, IDisposable
     {
+        public event EventHandler<GeneratorTestEnableAugmentSyntaxReceiverPayloadEventArgs>? MatchingSyntaxDetected
+        {
+            add
+            {
+                if (!_isDisposed.IsSet)
+                {
+                    MatchingSyntaxDetectedImpl += value;
+                }
+
+                if (_isDisposed.IsSet)
+                {
+                    MatchingSyntaxDetectedImpl = null;
+                }
+            }
+            remove
+            {
+                if (!_isDisposed.IsSet)
+                {
+                    MatchingSyntaxDetectedImpl -= value;
+                }
+
+                if (_isDisposed.IsSet)
+                {
+                    MatchingSyntaxDetectedImpl = null;
+                }
+            }
+        }
+            
+
         /// <inheritdoc />
         public void Initialize(GeneratorInitializationContext context)
         {
@@ -28,29 +60,24 @@ namespace Cjm.CodeGen
             try
             {
                 CancellationToken token = context.CancellationToken;
-                if (context.SyntaxReceiver is EnableAugmentedEnumerationExtensionSyntaxReceiver
+                if (context.SyntaxReceiver is EnableAugmentedEnumerationExtensionSyntaxReceiver rec && rec.FreezeAndQueryHasTargetData(Duration.FromSeconds(2), token))
                 {
-                    HasTargetData: true,
-                    TargetData:
+                    for (int i = 0; i < rec.TargetData.Length; ++i)
                     {
-                        ClassToAugment: { } cds, AttributeSyntax: { } attrSynt,
-                        AttributeTargetDataSyntax: { } tps
-                    }
-                })
-                {
-                    token.ThrowIfCancellationRequested();
-                    var results =
-                        context
-                            .TryMatchAttribSyntaxAgainstSemanticModelAndExtractInfo<
-                                EnableAugmentedEnumerationExtensionsAttribute>(attrSynt);
-                    if (results != null)
-                    {
-                        DebugLog.LogMessage("it wasn't null");
+                        ref readonly EnableAugmentedEnumerationExtensionTargetData td =
+                            ref rec.TargetData.ItemRef(i);
+                        OnMatchingSyntaxReceiver(td);
+                        token.ThrowIfCancellationRequested();
+                        var results =
+                            context
+                                .TryMatchAttribSyntaxAgainstSemanticModelAndExtractInfo<
+                                    EnableAugmentedEnumerationExtensionsAttribute>(td.AttributeSyntax);
+                        if (results != null)
+                        {
+                            DebugLog.LogMessage($"Results were non-null ({results}).");
+                        }
                     }
                 }
-
-
-
             }
             catch (OperationCanceledException)
             {
@@ -62,9 +89,37 @@ namespace Cjm.CodeGen
                 throw;
             }
         }
-        
 
-        
+        public void Dispose() => Dispose(true);
+
+        private void Dispose(bool disposing)
+        {
+            if (_isDisposed.TrySet() && disposing)
+            {
+                _eventPump.Dispose();
+            }
+            MatchingSyntaxDetectedImpl = null;
+        }
+
+        private void OnMatchingSyntaxReceiver(EnableAugmentedEnumerationExtensionTargetData? targetData)
+        {
+            if (targetData != null)
+            {
+                _eventPump.RaiseEvent(() =>
+                {
+                    GeneratorTestEnableAugmentSyntaxReceiverPayloadEventArgs args =
+                        new GeneratorTestEnableAugmentSyntaxReceiverPayloadEventArgs(targetData.Value);
+                    MatchingSyntaxDetectedImpl?.Invoke(this, args);
+                });
+            }
+        }
+
+        private event EventHandler<GeneratorTestEnableAugmentSyntaxReceiverPayloadEventArgs>?
+            MatchingSyntaxDetectedImpl; 
+
+        private LocklessSetOnlyFlag _isDisposed;
+        private readonly IEventPump _eventPump = EventPumpFactorySource.FactoryInstance("TransFEnumGen");
+
     }
 
     internal static class ContextExtensions
@@ -99,5 +154,37 @@ namespace Cjm.CodeGen
             return ret;
 
         }
+    }
+
+    internal sealed class LocklessConcreteType
+    {
+
+
+        public Type ConcreteType
+        {
+            get
+            {
+                Type? ret = _concreteType;
+                if (ret == null)
+                {
+                    Type theType = InitType();
+                    Debug.Assert(theType != null);
+                    Interlocked.CompareExchange(ref _concreteType, theType, null);
+                    ret = Volatile.Read(ref _concreteType);
+                }
+                Debug.Assert(ret != null);
+                return ret!;
+            }
+        }
+
+        public string ConcreteTypeName => ConcreteType.Name;
+
+        internal LocklessConcreteType(object owner) => _owner = owner ?? throw new ArgumentNullException(nameof(owner));
+
+        private Type InitType() => _owner.GetType();
+
+
+        private readonly object _owner;
+        private Type? _concreteType;
     }
 }

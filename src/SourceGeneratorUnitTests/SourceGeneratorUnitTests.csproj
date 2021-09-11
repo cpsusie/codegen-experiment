@@ -9,7 +9,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="HighPrecisionTimeStamps" Version="1.0.0.2" />
+    <Compile Remove="TestCases\TestCase1.cs" />
+    <Compile Remove="TestCases\TestCase2.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="HighPrecisionTimeStamps" Version="1.0.0.3-alpha" />
     <PackageReference Include="Microsoft.CodeAnalysis" Version="3.11.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.11.0" />
     <PackageReference Include="xunit" Version="2.4.1" />
@@ -25,6 +30,25 @@
 
   <ItemGroup>
     <ProjectReference Include="..\codegen_lib\codegen_lib.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="TestCases.Designer.cs">
+      <DependentUpon>TestCases.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="TestCases.resx">
+      <LastGenOutput>TestCases.Designer.cs</LastGenOutput>
+      <Generator>ResXFileCodeGenerator</Generator>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="TestCases\" />
   </ItemGroup>
 
 </Project>

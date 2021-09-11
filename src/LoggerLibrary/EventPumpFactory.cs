@@ -61,7 +61,15 @@ namespace LoggerLibrary
             public bool IsDisposed => _disposed.IsSet;
             public bool IsFaulted => _faulted.IsSet;
             public bool IsGood => _threadStarted.IsSet && !_threadEnded.IsSet && !_faulted.IsSet && !_disposed.IsSet;
+            private bool ShouldStopThread => _threadStarted.IsSet && !_threadEnded.IsSet;
 
+            private EventPumpImpl(string threadName)
+            {
+                if (threadName == null) throw new ArgumentNullException(nameof(threadName));
+                _actions = new BlockingCollection<Action>(new ConcurrentQueue<Action>());
+                _t = new Thread(ThreadLoop)
+                { IsBackground = true, Priority = ThreadPriority.BelowNormal, Name = threadName };
+            }
 
             public void RaiseEvent(Action a)
             {
@@ -83,19 +91,13 @@ namespace LoggerLibrary
                 }
             }
 
-            private EventPumpImpl(string threadName)
-            {
-                if (threadName == null) throw new ArgumentNullException(nameof(threadName));
-                _actions = new BlockingCollection<Action>(new ConcurrentQueue<Action>());
-                _t = new Thread(ThreadLoop)
-                { IsBackground = true, Priority = ThreadPriority.BelowNormal, Name = threadName };
-            }
+            public void Dispose() => Dispose(true);
 
             private void Dispose(bool disposing)
             {
                 if (_disposed.TrySet() && disposing)
                 {
-                    if (IsGood)
+                    if (ShouldStopThread)
                     {
                         _cts.Cancel();
                     }
@@ -156,11 +158,7 @@ namespace LoggerLibrary
             private readonly CancellationTokenSource _cts = new CancellationTokenSource();
             private readonly BlockingCollection<Action> _actions;
 
-            /// <inheritdoc />
-            public void Dispose()
-            {
-                throw new NotImplementedException();
-            }
+            
         }
     } 
     #endregion

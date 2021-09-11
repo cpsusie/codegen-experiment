@@ -16,7 +16,7 @@ namespace Cjm.CodeGen
             if (syntax is ClassDeclarationSyntax cds)
             {
                 //LoggerSource.Logger.LogMessage($"Examining class declaration syntax: [{cds.ToString()}].");
-                bool isPublicStatic = IsPublicStaticClassDeclaration(cds);
+                bool isPublicStatic = IsPublicStaticPartialClassDeclaration(cds);
                 var extensionAttribSyntax = FindExtensionsAttribute(cds, EnableAugmentedEnumerationExtensionsAttribute.ShortName);
                 bool hasExtensionAttribSyntax = extensionAttribSyntax != null;
                 TypeOfExpressionSyntax? tps = hasExtensionAttribSyntax ? FindFirstAttribArgIfTypeOf(extensionAttribSyntax!) : null;

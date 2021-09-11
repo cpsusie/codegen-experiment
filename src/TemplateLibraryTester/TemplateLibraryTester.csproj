@@ -6,6 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="HighPrecisionTimeStamps" Version="1.0.0.3-alpha" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\TemplateLibrary\TemplateLibrary.csproj" />
   </ItemGroup>
 
