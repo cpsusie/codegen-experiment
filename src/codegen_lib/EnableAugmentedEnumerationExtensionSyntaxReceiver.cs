@@ -53,10 +53,5 @@ namespace Cjm.CodeGen
             }
             return ret;
         }
-
-        private TypeParameterSyntax? FindFirstTypeParameterOnDecoratedClass(ClassDeclarationSyntax cds)
-            => cds.TypeParameterList?.Parameters.FirstOrDefault();
-           
-        
     }
 }

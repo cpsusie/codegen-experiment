@@ -2,7 +2,6 @@
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Threading;
-using LoggerLibrary;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -16,10 +15,7 @@ namespace Cjm.CodeGen
     {
         public bool IsFrozen => _frozen.IsSet;
 
-        public bool HasTargetData
-        {
-            get => _frozen.IsSet && !_targetData.IsDefaultOrEmpty;
-        }
+        public bool HasTargetData => _frozen.IsSet && !_targetData.IsDefaultOrEmpty;
 
         public ImmutableArray<TTargetData> TargetData
         {
@@ -174,14 +170,30 @@ namespace Cjm.CodeGen
             return null;
         }
 
-        private ImmutableArray<TTargetData> _targetData = default;
+        private ImmutableArray<TTargetData> _targetData;
         private ImmutableArray<TTargetData>.Builder? _arrayBldr = ImmutableArray.CreateBuilder<TTargetData>();
         private LocklessFourStepFlag _frozen;
-        private readonly object _syncObject = new();
     }
 
+    [DebuggerDisplay("{nameof(LocklessFourStepFlag)}--{Status}")]
     struct LocklessFourStepFlag
     {
+        public string Status
+        {
+            get
+            {
+                int val = _value;
+                return val switch
+                {
+                    Set => "SET",
+                    Clear => "CLEAR",
+                    Updating => "UPDATING",
+                    Setting => "SETTING",
+                    _ => "UNKNOWN-ERROR",
+                };
+            }
+        }
+
         public bool IsSet
         {
             get
@@ -205,7 +217,16 @@ namespace Cjm.CodeGen
             get
             {
                 int val = _value;
-                return val == Setting;
+                return val == Clear;
+            }
+        }
+
+        public bool IsUpdating
+        {
+            get
+            {
+                int val = _value;
+                return val == Updating;
             }
         }
 
