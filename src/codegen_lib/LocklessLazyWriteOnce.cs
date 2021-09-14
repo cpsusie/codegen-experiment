@@ -1,12 +1,66 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Threading;
+using Cjm.CodeGen.Exceptions;
 using HpTimeStamps;
 
 namespace Cjm.CodeGen
 {
+    public sealed class LocklessWriteOnce<T> where T : class
+    {
+        public bool IsSet
+        {
+            get
+            {
+                T? val = Volatile.Read(ref _value);
+                return val != null;
+            }
+        }
+
+        public T Value
+        {
+            get
+            {
+                T? val = _value;
+                if (val == null)
+                {
+                    val = Volatile.Read(ref _value);
+                    if (val == null)
+                    {
+                        throw new SetOnceValNotSetException<T>(typeof(LocklessWriteOnce<T>));
+                    }
+                }
+                return val;
+            }
+        }
+
+        internal LocklessWriteOnce(){}
+
+        public bool TrySet(T value)
+        {
+            if (value == null) throw new ArgumentNullException(nameof(value));
+            return Interlocked.CompareExchange(ref _value, value, null) == null;
+        }
+
+        public void SetOrThrow(T value)
+        {
+            if (value == null) throw new ArgumentNullException(nameof(value));
+            if (!TrySet(value))
+            {
+                throw new SetOnceValAlreadySetException<T>(value, Value);
+            }
+        }
+
+        /// <inheritdoc />
+        public override string ToString() =>
+            nameof(LocklessWriteOnce<T>) + " -- [" + (IsSet ? Value.ToString() : NotSet) + "].";
+
+        private T? _value;
+        private const string NotSet = "NOT SET";
+    }
+
     [DebuggerDisplay("{DebuggerValue}")]
-    internal sealed class LocklessLazyWriteOnce<T> where T : class
+    public sealed class LocklessLazyWriteOnce<T> where T : class
     {
         public bool IsSet
         {

@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Cjm.CodeGen.Attributes;
 using Cjm.CodeGen.Exceptions;
 using HpTimeStamps;
@@ -12,10 +13,24 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
+using Microsoft.CodeAnalysis.VisualBasic.Syntax;
+using AttributeSyntax = Microsoft.CodeAnalysis.CSharp.Syntax.AttributeSyntax;
+using ExpressionSyntax = Microsoft.CodeAnalysis.CSharp.Syntax.ExpressionSyntax;
 using MonotonicContext = HpTimeStamps.MonotonicStampContext;
+using TypeOfExpressionSyntax = Microsoft.CodeAnalysis.CSharp.Syntax.TypeOfExpressionSyntax;
 
 namespace Cjm.CodeGen
 {
+    
+    
+    internal sealed record GatheredData(EnumeratorData? Ed, INamedTypeSymbol? TargetItemType,
+        INamedTypeSymbol? TargetTypeCollection, INamedTypeSymbol? StaticClassToAugment,
+        IMethodSymbol? GetEnumeratorMethod, ITypeSymbol? EnumeratorType, IPropertySymbol? EnumeratorCurrentProperty,
+        IMethodSymbol? EnumeratorMoveNextMethod, IMethodSymbol? EnumeratorResetMethod,
+        IMethodSymbol? EnumeratorDisposeMethod);
+
+    
+
     [Generator]
     public sealed class TransformEnumeratorGenerator : ISourceGenerator, IDisposable
     {
@@ -109,9 +124,12 @@ namespace Cjm.CodeGen
         {
             using var eel = LoggerSource.Logger.CreateEel(nameof(TransformEnumeratorGenerator), nameof(Initialize),
                 context.ToString());
+           
             //context.RegisterForSyntaxNotifications(() => new EnableFastLinqClassDeclSyntaxReceiver());
             context.RegisterForSyntaxNotifications(() => new EnableAugmentedEnumerationExtensionSyntaxReceiver());
         }
+
+        
 
         /// <inheritdoc />
         public void Execute(GeneratorExecutionContext context)
@@ -119,6 +137,7 @@ namespace Cjm.CodeGen
             using var eel = LoggerSource.Logger.CreateEel(nameof(TransformEnumeratorGenerator), nameof(Execute), context.ToString() ?? "NONE");
             try
             {
+                SetUninitNtsIfNot(context);
                 CancellationToken token = context.CancellationToken;
                 if (context.SyntaxReceiver is EnableAugmentedEnumerationExtensionSyntaxReceiver rec && rec.FreezeAndQueryHasTargetData(Duration.FromSeconds(2), token))
                 {
@@ -143,8 +162,22 @@ namespace Cjm.CodeGen
 
                     if (lookup.Values.Any(val => val.Any()))
                     {
-                        ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableArray<SemanticData>> immutable = lookup.MakeImmutable();
-                        OnFinalPayloadCreated(immutable);
+                        ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableArray<UsableSemanticData>>
+                            useableLookup;
+                        ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableArray<GatheredData>>
+                            notUseableLookup;
+                        {
+                            ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableArray<SemanticData>> immutable = lookup.MakeImmutable();
+                            OnFinalPayloadCreated(immutable);
+                            (useableLookup, notUseableLookup) = ProcessFinalPayload(immutable, context);
+                        }
+                        token.ThrowIfCancellationRequested();
+                        if (notUseableLookup.Any())
+                        {
+                            EmitDiagnostics(useableLookup, notUseableLookup, context);
+                        }
+                        
+                        
                     }
                     else
                     {
@@ -163,10 +196,211 @@ namespace Cjm.CodeGen
             }
         }
 
-       
+        private (ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableArray<UsableSemanticData>>
+            useableLookup, ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableArray<GatheredData>>
+            notUseableLookup) ProcessFinalPayload(
+            ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableArray<SemanticData>> immutable,
+            GeneratorExecutionContext context) 
+        {
+            CancellationToken token = context.CancellationToken;
+            try
+            {
+                var bldr =
+                    ImmutableSortedDictionary.CreateBuilder<ClassDeclarationSyntax, ImmutableArray<GatheredData>>(
+                        ClassDeclarationSyntaxExtensions.TheComparer);
+                token.ThrowIfCancellationRequested();
+                foreach (var kvp in immutable)
+                {
+                    ClassDeclarationSyntax key = kvp.Key;
+                    ImmutableArray<SemanticData> semanticData = kvp.Value;
+                    var resultArray = ImmutableArray<GatheredData>.Empty;
+                    if (semanticData.Any())
+                    {
+                        var gdArrBldr = ImmutableArray.CreateBuilder<GatheredData>(semanticData.Length);
+                        PopulateGatheredData(key, semanticData, gdArrBldr, context);
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                TraceLog.LogException(ex);
+                throw;
+            }
+
+            return (ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableArray<UsableSemanticData>>.Empty,
+                    ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableArray<GatheredData>>.Empty)
+                ;
+        }
+
+        private void PopulateGatheredData(ClassDeclarationSyntax key, ImmutableArray<SemanticData> semanticData, ImmutableArray<GatheredData>.Builder gdArrBldr, GeneratorExecutionContext context)
+        {
+            var token = context.CancellationToken;
+            token.ThrowIfCancellationRequested();
+            Debug.Assert(semanticData.Length > 0 && gdArrBldr.Capacity == semanticData.Length);
+            foreach (SemanticData sd in semanticData)
+            {
+                EnumeratorData ed = default;
+                INamedTypeSymbol? targetItemType=null, targetTypeCollection=null, staticClassToAugment=null;
+                ITypeSymbol? enumeratorType = null;
+                IMethodSymbol? getEnumeratorMethod = null,
+                    enumeratorMoveNextMethod=null,
+                    enumeratorResetMethod=null,
+                    enumeratorDisposeMethod=null;
+                IPropertySymbol? enumeratorCurrentProperty=null;
+
+                staticClassToAugment = sd.AttributeTargetData.AttributeTypeSymbol;
+                targetTypeCollection = sd.TargetTypeData.TargetTypeSymbol;
+                if (sd.TargetTypeData.IsGoodMatch && targetTypeCollection != null)
+                {
+                    (getEnumeratorMethod, enumeratorType) =
+                        FindGetEnumeratorMethodAndReturnType(targetTypeCollection, token);
+                    if (getEnumeratorMethod != null && enumeratorType?.SpecialType != null &&
+                        enumeratorType.SpecialType != SpecialType.System_Void && enumeratorType.CanBeReferencedByName && enumeratorType is INamedTypeSymbol
+                        {
+                            DeclaredAccessibility: Accessibility.Public
+                        } namedEts)
+                    {
+                        bool validTypeKind;
+                        (validTypeKind, ed) = ExtractEnumeratorTypeData(ed, namedEts);
+                        if (validTypeKind)
+                        {
+                            (enumeratorCurrentProperty, enumeratorMoveNextMethod, enumeratorDisposeMethod,
+                                enumeratorMoveNextMethod) = ExtractEnumeratorPublicMemberDetails(namedEts, token);
+                        }
+                    }
+                }
+
+
+                gdArrBldr.Add(new GatheredData(ed, targetItemType, targetTypeCollection, staticClassToAugment, getEnumeratorMethod, enumeratorType, enumeratorCurrentProperty, enumeratorMoveNextMethod, enumeratorResetMethod, enumeratorDisposeMethod));
+            }
+        }
+
+        private static (bool ValidTypeKind, EnumeratorData UpdatedEd) ExtractEnumeratorTypeData(EnumeratorData cEd, INamedTypeSymbol enumTs)
+        {
+            bool validTypeKind = PermittedEnumeratorTypeKinds.Contains(enumTs.TypeKind);
+            bool isReferenceType = enumTs.IsReferenceType;
+            bool isInterface = isReferenceType && enumTs.TypeKind == TypeKind.Interface;
+            bool isClass = validTypeKind && !isInterface && isReferenceType;
+            bool isValueType = !isReferenceType && validTypeKind && enumTs.IsValueType;
+            bool isReadOnly = isValueType && enumTs.IsReadOnly;
+            bool isStackOnly = isValueType && enumTs.IsRefLikeType;
+            if (validTypeKind)
+            {
+                Debug.Assert(isReferenceType || isValueType);
+                if (isReferenceType)
+                {
+                    cEd = cEd.AddEnumeratorTypeInfoForReferenceType(isInterface, isClass);
+                }
+                else if (isValueType)
+                {
+                    cEd = cEd.AddEnumeratorTypeInfoForValueType(isReadOnly, isStackOnly);
+                }
+            }
+            else if (isReferenceType)
+            {
+                cEd = cEd.AddEnumeratorTypeInfoForReferenceType(false, false);
+            }
+
+            return (validTypeKind, cEd);
+        }
+
+        private static (IPropertySymbol? EnumeratorCurrentProperty, IMethodSymbol? EnumeratorMoveNextMethod, IMethodSymbol? EnumeratorDisposeMethod, IMethodSymbol? EnumeratorResetMethod) 
+            ExtractEnumeratorPublicMemberDetails(INamedTypeSymbol namedEts, CancellationToken token)
+        {
+            IPropertySymbol? currentProperty = null;
+            IMethodSymbol? moveNext = null;
+            IMethodSymbol? reset = null;
+            IMethodSymbol? dispose = null;
+            try
+            {
+                token.ThrowIfCancellationRequested();
+                //todo fixit resume here
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                TraceLog.LogError(
+                    $"Unexpected exception thrown in {nameof(ExtractEnumeratorPublicMemberDetails)} method for type symbol {namedEts.Name}.  Exception: \"{ex}\".");
+                throw;
+            }
+
+            return (currentProperty, moveNext, reset, dispose);
+        }
+
+        public (IMethodSymbol? GetEnumeratorMethodSymbol, ITypeSymbol? EnumeratorType)
+            FindGetEnumeratorMethodAndReturnType(INamedTypeSymbol searchMe, CancellationToken token)
+        {
+            IMethodSymbol? getEnumeratorMethod;
+            ITypeSymbol? returnType;
+            try
+            {
+                token.ThrowIfCancellationRequested();
+                getEnumeratorMethod = (from symbol in searchMe.GetMembers(GetEnumeratorMethodName)
+                    let methodSymbol = symbol as IMethodSymbol
+                    where methodSymbol is { CanBeReferencedByName: true, DeclaredAccessibility: Accessibility.Public }
+                    select methodSymbol).FirstOrDefault();
+                token.ThrowIfCancellationRequested();
+                returnType = getEnumeratorMethod?.ReturnType;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                TraceLog.LogError(
+                    $"Unexpected exception thrown in {nameof(FindGetEnumeratorMethodAndReturnType)} method for type symbol {searchMe.Name}.  Exception: \"{ex}\".");
+                throw;
+            }
+            Debug.Assert(getEnumeratorMethod != null || returnType == null);
+            return (getEnumeratorMethod, returnType);
+        }
+
+
+        private static Task EmitDiagnostics(ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableArray<UsableSemanticData>> useableLookup, ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableArray<GatheredData>> notUseableLookup, GeneratorExecutionContext context)
+        {
+            try
+            {
+                var token = context.CancellationToken;
+                if (!notUseableLookup.Any())
+                {
+                    DebugLog.LogError("No non-useable items to emit diagnostics for.");
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            return Task.CompletedTask;
+        }
+
+        private void SetUninitNtsIfNot(GeneratorExecutionContext context)
+        {
+            using var eel = TraceLog.CreateEel(nameof(TransformEnumeratorGenerator), nameof(SetUninitNtsIfNot),
+                context.Compilation.ToString());
+            Type unitType = typeof(UninitializedTargetData);
+            INamedTypeSymbol ts =
+                context.Compilation.GetTypeByMetadataName(unitType.FullName ??
+                                                          unitType.AssemblyQualifiedName ?? unitType.Name) ??
+                throw new InvalidOperationException($"Unable to find named type symbol for {unitType}.");
+            IPropertySymbol ps = ts.GetMembers().OfType<IPropertySymbol>().First() ??
+                                 throw new InvalidOperationException("Cannot find property symbol.");
+            IMethodSymbol ns = ts.GetMembers().OfType<IMethodSymbol>().First() ??
+                               throw new InvalidOperationException("Cannot find method symbol.");
+            GenerationData.EnsureSet(ts, ps, ns);
+        }
+
 
         public void Dispose() => Dispose(true);
 
+        
         private void Dispose(bool disposing)
         {
             if (_isDisposed.TrySet() && disposing)
@@ -185,7 +419,7 @@ namespace Cjm.CodeGen
                 _eventPump.RaiseEvent(() =>
                 {
                     GeneratorTestEnableAugmentSyntaxReceiverPayloadEventArgs args =
-                        new GeneratorTestEnableAugmentSyntaxReceiverPayloadEventArgs(targetData.Value);
+                        new(targetData.Value);
                     MatchingSyntaxDetectedImpl?.Invoke(this, args);
                 });
             }
@@ -218,12 +452,186 @@ namespace Cjm.CodeGen
             }
         }
 
+
+        private static readonly ImmutableArray<TypeKind> PermittedEnumeratorTypeKinds =
+            ImmutableArray.Create(TypeKind.Class, TypeKind.Struct, TypeKind.Interface);
+        private const string GetEnumeratorMethodName = "GetEnumerator";
         private event EventHandler<GeneratorTestingEnableAugmentedEnumerationFinalPayloadEventArgs>? FinalPayloadCreatedImpl;
         private event EventHandler<GeneratorTestEnableAugmentSyntaxReceiverPayloadEventArgs>?
             MatchingSyntaxDetectedImpl;
         private event EventHandler<GeneratorTestEnableAugmentSemanticPayloadEventArgs>? SemanticPayloadFoundImpl;
         private LocklessSetOnlyFlag _isDisposed;
         private readonly IEventPump _eventPump = EventPumpFactorySource.FactoryInstance("TransFEnumGen");
+
+    }
+
+    public sealed class UsableSemanticData : IEquatable<UsableSemanticData?>
+    {
+        
+        public SemanticData SemanticInfo => _semanticData;
+        public ref readonly GenerationData GenerationInfo => ref _generationData;
+
+        private UsableSemanticData(SemanticData sd, in GenerationData gd)
+        {
+            _generationData = gd.IsInvalidDefault
+                ? throw new ArgumentException("Parameter was invalid, uninitialized default value.", nameof(gd))
+                : gd;
+            _semanticData = sd ?? throw new ArgumentNullException(nameof(sd));
+            _stringRep = new LocklessLazyWriteOnce<string>(GetStringRep);
+        }
+
+        public bool Equals(UsableSemanticData? other) =>
+            other?._semanticData == _semanticData && other._generationData == _generationData;
+
+        public override int GetHashCode()
+        {
+            int hash = _semanticData.GetHashCode();
+            unchecked
+            {
+                hash = (hash * 397) ^ _generationData.GetHashCode();
+            }
+            return hash;
+        }
+
+        /// <inheritdoc />
+        public override bool Equals(object? obj) => Equals(obj as UsableSemanticData);
+        public static bool operator ==(UsableSemanticData lhs, UsableSemanticData rhs) =>
+            ReferenceEquals(lhs, rhs) || lhs?.Equals(rhs) == true;
+        public static bool operator !=(UsableSemanticData lhs, UsableSemanticData rhs) => !(lhs == rhs);
+
+        /// <inheritdoc />
+        public override string ToString() => _stringRep.Value;
+           
+        private string GetStringRep() =>
+            $"{nameof(UsableSemanticData)} -- Semantic Data: {_semanticData.ToString()} \tGenerationData: {_generationData.ToString()}";
+        private readonly LocklessLazyWriteOnce<string> _stringRep;
+        private readonly GenerationData _generationData;
+        private readonly SemanticData _semanticData;
+    }
+
+    public readonly struct GenerationData : IEquatable<GenerationData>, IHasGenericByRefRoEqComparer<GenerationData.EqComp, GenerationData>
+    {
+        public static readonly GenerationData InvalidDefault = default;
+
+        private GenerationData(EnumeratorData ed, INamedTypeSymbol targetItemType,
+            INamedTypeSymbol? targetTypeCollection, INamedTypeSymbol staticClassToAugment,
+            IMethodSymbol getEnumeratorMethod, ITypeSymbol enumeratorType, IPropertySymbol enumeratorCurrentProperty,
+            IMethodSymbol enumeratorMoveNextMethod, IMethodSymbol enumeratorResetMethod,
+            IMethodSymbol enumeratorDisposeMethod)
+        {
+            _ed = ed;
+            _targetItemType = targetItemType;
+            _targetTypeCollection = targetTypeCollection;
+            _staticClassToAugment = staticClassToAugment;
+            _getEnumeratorMethod = getEnumeratorMethod;
+            _enumeratorType = enumeratorType;
+            _enumeratorCurrentProperty = enumeratorCurrentProperty;
+            _enumeratorMoveNextMethod = enumeratorMoveNextMethod;
+            EnumeratorResetMethod = enumeratorResetMethod;
+            EnumeratorDisposeMethod = enumeratorDisposeMethod;
+        }
+
+        internal static bool IsDefaultSet => TheUninitializedNamedTypeSymbol.IsSet;
+        private static INamedTypeSymbol DefaultNts => TheUninitializedNamedTypeSymbol.Value.NamedType;
+        private static IPropertySymbol DefaultPs => TheUninitializedNamedTypeSymbol.Value.PropertySymbol;
+        private static IMethodSymbol DefaultMs => TheUninitializedNamedTypeSymbol.Value.MethodSymbol;
+
+        public EnumeratorData EnumeratorData => _ed;
+        public INamedTypeSymbol TargetItemType => _targetItemType ?? DefaultNts;
+        public INamedTypeSymbol TargetCollectionType => _targetTypeCollection ?? DefaultNts;
+        public INamedTypeSymbol StaticClassToAugment => _staticClassToAugment ?? DefaultNts;
+        public bool IsInvalidDefault => this == InvalidDefault;
+
+        public IMethodSymbol GetEnumeratorMethod => _getEnumeratorMethod ?? DefaultMs;
+
+        public ITypeSymbol EnumeratorType => _enumeratorType ?? DefaultNts;
+
+        public IPropertySymbol EnumeratorCurrentProperty => _enumeratorCurrentProperty ?? DefaultPs;
+        public IMethodSymbol EnumeratorMoveNextMethod => _enumeratorMoveNextMethod ?? DefaultMs;
+        public IMethodSymbol? EnumeratorResetMethod { get; }
+
+        public IMethodSymbol? EnumeratorDisposeMethod { get; }
+
+
+        internal static void EnsureSet(INamedTypeSymbol
+            nts, IPropertySymbol ps, IMethodSymbol ms)
+        {
+            if (TheUninitializedNamedTypeSymbol.IsSet) return;
+
+            UninitializedSymbols symbols = new (nts ?? throw new ArgumentNullException(nameof(nts)),
+                ps ?? throw new ArgumentNullException(nameof(ps)), ms ?? throw new ArgumentNullException(nameof(ms)));
+
+            bool setIt = TheUninitializedNamedTypeSymbol.TrySet(symbols);
+            if (!setIt && !TheUninitializedNamedTypeSymbol.IsSet)
+                throw new InvalidOperationException("Unable to set initial value.");
+        }
+
+        static GenerationData()
+        {
+            TheUninitializedNamedTypeSymbol = new LocklessWriteOnce<UninitializedSymbols>();
+        }
+
+        public override int GetHashCode()
+        {
+            int hash = SymbolEqualityComparer.IncludeNullability.GetHashCode(TargetItemType);
+            unchecked
+            {
+                hash = (hash * 397) ^ SymbolEqualityComparer.Default.GetHashCode(TargetCollectionType);
+                hash = (hash * 397) ^ SymbolEqualityComparer.Default.GetHashCode(StaticClassToAugment);
+                hash = (hash * 397) ^ _ed.GetHashCode();
+            }
+            return hash;
+        }
+
+        public static bool operator ==(in GenerationData lhs, in GenerationData rhs) => lhs._ed == rhs._ed &&
+            SymbolEqualityComparer.IncludeNullability.Equals(lhs.TargetItemType, rhs.TargetItemType) &&
+            SymbolEqualityComparer.Default.Equals(lhs.TargetCollectionType, rhs.TargetCollectionType) &&
+            SymbolEqualityComparer.Default.Equals(lhs.StaticClassToAugment, rhs.StaticClassToAugment) &&
+            SymbolEqualityComparer.IncludeNullability.Equals(lhs.EnumeratorCurrentProperty,
+                rhs.EnumeratorCurrentProperty) &&
+            SymbolEqualityComparer.Default.Equals(lhs.GetEnumeratorMethod, rhs.GetEnumeratorMethod) &&
+            SymbolEqualityComparer.Default.Equals(lhs.EnumeratorMoveNextMethod, rhs.EnumeratorMoveNextMethod) &&
+            SymbolEqualityComparer.Default.Equals(lhs.EnumeratorDisposeMethod, rhs.EnumeratorDisposeMethod) &&
+            SymbolEqualityComparer.IncludeNullability.Equals(lhs.EnumeratorType, rhs.EnumeratorType) &&
+            SymbolEqualityComparer.Default.Equals(lhs.EnumeratorResetMethod, rhs.EnumeratorResetMethod);
+
+        public static bool operator !=(in GenerationData lhs, in GenerationData rhs) => !(lhs == rhs);
+
+        public bool Equals(GenerationData other) => other == this;
+
+        /// <inheritdoc />
+        public EqComp GetComparer() => default;
+        
+
+        public override bool Equals(object? other) => other is GenerationData gd && gd == this;
+
+        /// <inheritdoc />
+        public override string ToString() =>
+            $"GenerationData -- {nameof(TargetItemType)}: \t{TargetItemType.ToDisplayString()}; \t{nameof(TargetCollectionType)}: " +
+            $"\t{TargetCollectionType.ToDisplayString()}; \t{nameof(StaticClassToAugment)}: \t{StaticClassToAugment.ToDisplayString()};" +
+            $" \t{nameof(EnumeratorData)}: \t{EnumeratorData.ToString()}.";
+
+        public readonly struct EqComp : IByRoRefEqualityComparer<GenerationData>
+        {
+            public bool Equals(in GenerationData l, in GenerationData r) => l == r;
+            public int GetHashCode(in GenerationData gd) => gd.GetHashCode();
+
+        }
+
+        private readonly EnumeratorData _ed;
+        private readonly INamedTypeSymbol? _targetItemType;
+        private readonly INamedTypeSymbol? _targetTypeCollection;
+        private readonly INamedTypeSymbol? _staticClassToAugment;
+        private readonly IMethodSymbol? _getEnumeratorMethod;
+        private readonly ITypeSymbol? _enumeratorType;
+        private readonly IPropertySymbol? _enumeratorCurrentProperty;
+        private readonly IMethodSymbol? _enumeratorMoveNextMethod;
+
+        private sealed record UninitializedSymbols(INamedTypeSymbol NamedType, IPropertySymbol PropertySymbol,
+            IMethodSymbol MethodSymbol);
+
+        private static readonly LocklessWriteOnce<UninitializedSymbols> TheUninitializedNamedTypeSymbol;
+        
 
     }
 
@@ -620,7 +1028,7 @@ namespace Cjm.CodeGen
         private readonly TypeKind _typeKind;
         private readonly INamedTypeSymbol? _targetNts;
 
-       
+         
         private const string DefaultBadReason = "The " + nameof(EnableAugmentedEnumerationTargetTypeData) +
                                                 " struct is not properly initialized.";
 
@@ -653,50 +1061,5 @@ namespace Cjm.CodeGen
             return new EnableAugmentedEnumerationTargetTypeData(firstParam, location, toes.Span, toes, reasonWhyNot,
                 in ti, tk, null);
         }
-    }
-
-    [Foobar(typeof(List<DateTime>))]
-    internal sealed class LocklessConcreteType
-    {
-
-
-        public Type ConcreteType
-        {
-            get
-            {
-                Type? ret = _concreteType;
-                if (ret == null)
-                {
-                    ret = Volatile.Read(ref _concreteType);
-                    if (ret == null)
-                    {
-                        Type theType = InitType();
-                        Debug.Assert(theType != null);
-                        Interlocked.CompareExchange(ref _concreteType, theType, null);
-                        ret = Volatile.Read(ref _concreteType);
-                    }
-                }
-                Debug.Assert(ret != null);
-                return ret!;
-            }
-        }
-
-        public string ConcreteTypeName => ConcreteType.Name;
-
-        internal LocklessConcreteType(object owner) => _owner = owner ?? throw new ArgumentNullException(nameof(owner));
-
-        private Type InitType() => _owner.GetType();
-
-
-        private readonly object _owner;
-        private Type? _concreteType;
-    }
-
-    [AttributeUsage(AttributeTargets.Class)]
-    public sealed class FoobarAttribute : Attribute
-    {
-        public Type TheType { get; }
-        public FoobarAttribute(Type myType) => TheType = myType ?? throw new ArgumentNullException(nameof(myType));
-
     }
 }

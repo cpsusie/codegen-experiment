@@ -13,6 +13,6 @@ namespace Cjm.CodeGen
             CreateCdsSortedDicArrayBldr<TValue>()  => ImmutableSortedDictionary
             .CreateBuilder<ClassDeclarationSyntax, ImmutableArray<TValue>.Builder>(TheComparer);
 
-        private static readonly CdsComparer TheComparer = CdsComparer.GetComparer();
+        public static readonly CdsComparer TheComparer = CdsComparer.GetComparer();
     }
 }
