@@ -3,12 +3,14 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace TemplateLibrary
 {
+    
+
     [SuppressMessage("ReSharper", "NonReadonlyMemberInGetHashCode")]
-    public struct RefArrayEnumerator<T> : IByRefEnumerator<T>, IEquatable<RefArrayEnumerator<T>> where T : struct
+    public struct RefArrayEnumerator<T> : IByRefEnumerator<T>, IEquatable<RefArrayEnumerator<T>> 
     {
         public static readonly RefArrayEnumerator<T> InvalidDefault = default;
-        public readonly ref T Current => ref _array[_index];
-        readonly ref readonly T IByRoRefEnumerator<T>.Current => ref Current;
+        public readonly ref T Current => ref _array[_index];  
+        readonly ref readonly T IByRoRefEnumerator<T>.Current => ref Current; 
         readonly T INoDisposeEnumerator<T>.Current => Current;
         
         public RefArrayEnumerator(T[] array)
@@ -52,4 +54,6 @@ namespace TemplateLibrary
         private static readonly string ArrayTypeName = typeof(T[]).Name;
         private static readonly string TypeName = typeof(RefArrayEnumerator<T>).Name;
     }
+
+ 
 }

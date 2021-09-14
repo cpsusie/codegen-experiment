@@ -12,19 +12,24 @@ namespace Cjm.CodeGen
     public readonly struct EnumeratorData : IEquatable<EnumeratorData>, IComparable<EnumeratorData>
     {
 
-        public static EnumeratorData IsIEnumeratorT { get; } = new EnumeratorData(
+        public static EnumeratorData IsIEnumeratorT { get; } = new(
             EnumeratorDataCode.EnumeratorIsInterfaceType | EnumeratorDataCode.EnumeratorIsReferenceType |
-            EnumeratorDataCode.ImplementsGenericIEnumerable | EnumeratorDataCode.ImplementsIEnumerable |
+            EnumeratorDataCode.ImplementsGenericIEnumerator | EnumeratorDataCode.ImplementsIEnumerator |
             EnumeratorDataCode.HasPublicDispose | EnumeratorDataCode.HasPublicDisposeReturningVoid |
             EnumeratorDataCode.EnumeratorHasPublicResetMethod | EnumeratorDataCode.HasPublicMoveNextReturningBool |
-            EnumeratorDataCode.HasPublicResetReturningVoid | EnumeratorDataCode.EnumeratorHasDisposeMethod);
+            EnumeratorDataCode.HasPublicResetReturningVoid | EnumeratorDataCode.EnumeratorHasDisposeMethod |
+            EnumeratorDataCode.IsIEnumeratorT | EnumeratorDataCode.EnumeratorImplementsIDisposable);
 
-        public static EnumeratorData IsNonGenericIEnumerator { get; } = new EnumeratorData(
-            EnumeratorDataCode.EnumeratorIsInterfaceType | EnumeratorDataCode.EnumeratorIsReferenceType | EnumeratorDataCode.ImplementsIEnumerable |
+        public static EnumeratorData IsNonGenericIEnumerator { get; } = new(
+            EnumeratorDataCode.EnumeratorIsInterfaceType | EnumeratorDataCode.EnumeratorIsReferenceType |
+            EnumeratorDataCode.ImplementsIEnumerator |
             EnumeratorDataCode.HasPublicDispose | EnumeratorDataCode.HasPublicDisposeReturningVoid |
             EnumeratorDataCode.EnumeratorHasPublicResetMethod | EnumeratorDataCode.HasPublicMoveNextReturningBool |
-            EnumeratorDataCode.HasPublicResetReturningVoid | EnumeratorDataCode.EnumeratorHasDisposeMethod);
-
+            EnumeratorDataCode.HasPublicResetReturningVoid | EnumeratorDataCode.EnumeratorHasDisposeMethod |
+            EnumeratorDataCode.IsIEnumerator | EnumeratorDataCode.EnumeratorImplementsIDisposable);
+        public bool ImplementsIDisposable => CheckHasSingleFlag(EnumeratorDataCode.EnumeratorImplementsIDisposable);
+        public bool IsGenericIEnumerator => CheckHasSingleFlag(EnumeratorDataCode.IsIEnumeratorT);
+        public bool IsIEnumerator => CheckHasSingleFlag(EnumeratorDataCode.IsIEnumerator);
         public bool IsDataUnavailable => (_code & ClearMaskStartingPoint) == EnumeratorDataCode.Unavailable;
         public bool IsEnumeratorAReferenceType => CheckHasSingleFlag(EnumeratorDataCode.EnumeratorIsReferenceType);
         public bool IsEnumeratorAnInterfaceType => CheckHasSingleFlag(EnumeratorDataCode.EnumeratorIsInterfaceType);
@@ -52,10 +57,10 @@ namespace Cjm.CodeGen
             !IsPublicCurrentReturnedByReadonlyReference && !IsPublicCurrentReturnedByReference;
 
         public bool DoesEnumeratorImplementGenericIEnumerable =>
-            CheckHasSingleFlag(EnumeratorDataCode.ImplementsGenericIEnumerable);
+            CheckHasSingleFlag(EnumeratorDataCode.ImplementsGenericIEnumerator);
 
         public bool DoesEnumeratorImplementIEnumerable => DoesEnumeratorImplementGenericIEnumerable ||
-                                                          CheckHasSingleFlag(EnumeratorDataCode.ImplementsIEnumerable);
+                                                          CheckHasSingleFlag(EnumeratorDataCode.ImplementsIEnumerator);
 
         public bool HasPublicMoveNext => CheckHasSingleFlag(EnumeratorDataCode.HasPublicMoveNext);
 
@@ -228,16 +233,16 @@ namespace Cjm.CodeGen
         {
             bool isRefStruct = IsEnumeratorAStackOnlyValueType;
             EnumeratorDataCode clearMask = ClearMaskStartingPoint &
-                                           (~(EnumeratorDataCode.ImplementsIEnumerable |
-                                              EnumeratorDataCode.ImplementsGenericIEnumerable));
+                                           (~(EnumeratorDataCode.ImplementsIEnumerator |
+                                              EnumeratorDataCode.ImplementsGenericIEnumerator));
             EnumeratorDataCode setMask = (isRefStruct, implementsIEnumerable, implementsGenericIEnumerable) switch
             {
                 (_, false, true) => throw new ArgumentException($"{nameof(implementsGenericIEnumerable)} (value: true) should imply {nameof(implementsIEnumerable)} (value: false)."),
                 (true, true, _) => throw new ArgumentException($"{nameof(implementsGenericIEnumerable)} (value: {implementsGenericIEnumerable}) and {nameof(implementsIEnumerable)} (value: true) must both be false since this is a ref struct."),
                 //(true, _, true) => throw new ArgumentException($"{nameof(implementsGenericIEnumerable)} (value: {implementsGenericIEnumerable}) and {nameof(implementsIEnumerable)} (value: true) must both be false since this is a ref struct."),
                 (_, false, false) => EnumeratorDataCode.Unavailable,
-                (_, true, true) => EnumeratorDataCode.ImplementsIEnumerable | EnumeratorDataCode.ImplementsGenericIEnumerable,
-                (_, true, false) => EnumeratorDataCode.ImplementsIEnumerable,
+                (_, true, true) => EnumeratorDataCode.ImplementsIEnumerator | EnumeratorDataCode.ImplementsGenericIEnumerator | EnumeratorDataCode.EnumeratorImplementsIDisposable,
+                (_, true, false) => EnumeratorDataCode.ImplementsIEnumerator | EnumeratorDataCode.EnumeratorImplementsIDisposable,
             };
 
             var newCode = _code;
@@ -351,9 +356,9 @@ namespace Cjm.CodeGen
             EnumeratorDataCode.EnumeratorIsReferenceType |
             EnumeratorDataCode.EnumeratorIsInterfaceType |
             EnumeratorDataCode.EnumeratorIsRefStruct |
-            EnumeratorDataCode.EnumeratorIsReadOnlyStruct | EnumeratorDataCode.EnumeratorIsClassType));
+            EnumeratorDataCode.EnumeratorIsReadOnlyStruct | EnumeratorDataCode.EnumeratorIsClassType | EnumeratorDataCode.IsIEnumerator | EnumeratorDataCode.IsIEnumeratorT));
         private static readonly EnumeratorDataCode ClearInterfaceImplementationDataMask = ClearMaskStartingPoint & (
-            ~(EnumeratorDataCode.ImplementsIEnumerable | EnumeratorDataCode.ImplementsGenericIEnumerable));
+            ~(EnumeratorDataCode.ImplementsIEnumerator | EnumeratorDataCode.ImplementsGenericIEnumerator));
 
         [Flags]
         private enum EnumeratorDataCode : uint
@@ -370,8 +375,8 @@ namespace Cjm.CodeGen
             PublicCurrentIsReadOnly                         = 0x0000_0100,
             PublicCurrentIsReturnedByReference              = 0x0000_0200,
             PublicCurrentIsReturnedByReadOnlyReference      = 0x0000_0400,
-            ImplementsIEnumerable                           = 0x0000_0800,
-            ImplementsGenericIEnumerable                    = 0x0000_1000,
+            ImplementsIEnumerator                           = 0x0000_0800,
+            ImplementsGenericIEnumerator                    = 0x0000_1000,
             HasPublicDispose                                = 0x0000_2000,
             HasPublicDisposeReturningVoid                   = 0x0000_4000,
             HasPublicMoveNext                               = 0x0000_8000,
@@ -380,8 +385,9 @@ namespace Cjm.CodeGen
             HasPublicResetReturningVoid                     = 0x0004_0000,
             EnumeratorIsReadOnlyStruct                      = 0x0008_0000,
             EnumeratorImplementsIDisposable                 = 0x0010_0000, 
-            EnumeratorIsClassType                           = 0x0020_0000,//          0000_0000 0010_0000 0000_0000 0000_0000
-            //ALL SET:  0000_0000 0000_1111 1111_1111 1111_1111
+            EnumeratorIsClassType                           = 0x0020_0000,
+            IsIEnumeratorT                                  = 0x0040_0000,
+            IsIEnumerator                                   = 0x0080_0000,
         }
     }
 }

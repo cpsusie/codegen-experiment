@@ -13,7 +13,7 @@ namespace TemplateLibrary
 
     public interface IByRoRefEnumerator<T>  : INoDisposeEnumerator<T>
     {
-        new ref readonly T Current {  get; }
+        new ref readonly T Current {  get; } 
 
     }
 

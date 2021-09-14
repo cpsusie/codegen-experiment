@@ -8,7 +8,7 @@ namespace TemplateLibrary
     public struct RoRefArrayEnumerator<T> : IByRoRefEnumerator<T>, IEquatable<RoRefArrayEnumerator<T>> where T : struct
     {
         public static readonly RoRefArrayEnumerator<T> InvalidDefault = default;
-        public readonly ref readonly T Current => ref _array[_index];
+        public readonly ref readonly T Current => ref _array[_index];    
         readonly T INoDisposeEnumerator<T>.Current => Current;
         
         public RoRefArrayEnumerator(T[] array)

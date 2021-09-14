@@ -3,7 +3,7 @@
 namespace TemplateLibrary
 {
     public readonly struct
-        ReadOnlyEnumerableArray<TITem> : ISpecificallyRefReadOnlyEnumerable<TITem, RefArrayEnumerator<TITem>>, IEquatable<ReadOnlyEnumerableArray<TITem>>
+        ReadOnlyEnumerableArray<TITem> : ISpecificallyRefReadOnlyEnumerable<TITem, RoRefArrayEnumerator<TITem>>, IEquatable<ReadOnlyEnumerableArray<TITem>>
             where TITem : struct
     {
         public static readonly ReadOnlyEnumerableArray<TITem> InvalidDefault = default;
@@ -14,7 +14,11 @@ namespace TemplateLibrary
         public static implicit operator TITem[](ReadOnlyEnumerableArray<TITem> arr) =>
             arr != InvalidDefault ? arr._wrappedArray : Array.Empty<TITem>();
 
-        public RefArrayEnumerator<TITem> GetEnumerator() => new (_wrappedArray);
+        public ref readonly TITem this[long idx] => ref _wrappedArray[idx];
+        public ref readonly TITem this[Index idx] => ref _wrappedArray[idx];
+        public ref readonly TITem this[int idx] => ref _wrappedArray[idx];
+
+        public RoRefArrayEnumerator<TITem> GetEnumerator() => new (_wrappedArray);
 
         public ReadOnlyEnumerableArray(TITem[] wrappedArray) =>
             _wrappedArray = wrappedArray ?? throw new ArgumentNullException(nameof(wrappedArray));
