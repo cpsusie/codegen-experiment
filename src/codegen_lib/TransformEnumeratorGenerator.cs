@@ -327,7 +327,7 @@ namespace Cjm.CodeGen
                                 (bool implementsIDisposable, bool implementsIEnumerable,
                                     bool implementsGenericIEnumerable) = ed.IsEnumeratorAStackOnlyValueType
                                     ? (false, false, false)
-                                    : GatherInterfaceImplementationData(namedEts, token);
+                                    : GatherInterfaceImplementationData(namedEts, targetItemType, token);
                                 ed = ed.AddIEnumerableInterfaceImplementationData(
                                     implementsGenericIEnumerable || implementsIEnumerable,
                                     implementsGenericIEnumerable);
@@ -337,39 +337,58 @@ namespace Cjm.CodeGen
                         }
                     }
                 }
-                gdArrBldr.Add(new GatheredData(ed, targetItemType, targetTypeCollection, staticClassToAugment, getEnumeratorMethod, enumeratorType, enumeratorCurrentProperty, enumeratorMoveNextMethod, enumeratorResetMethod, enumeratorDisposeMethod));
+                gdArrBldr.Add(new GatheredData(ed, targetItemType, targetTypeCollection, staticClassToAugment, getEnumeratorMethod, 
+                    enumeratorType, enumeratorCurrentProperty, enumeratorMoveNextMethod, enumeratorResetMethod, enumeratorDisposeMethod));
             }
         }
 
-        private (bool ImplementsIDisposable, bool ImplementsIEnumerator, bool ImplementsGenericIEnumerator) GatherInterfaceImplementationData(INamedTypeSymbol namedEts, CancellationToken token)
+        private (bool ImplementsIDisposable, bool ImplementsIEnumerator, bool ImplementsGenericIEnumerator) GatherInterfaceImplementationData(INamedTypeSymbol namedEts, INamedTypeSymbol? targetItemType,  CancellationToken token)
         {
             if (namedEts.SpecialType == SpecialType.System_Collections_Generic_IEnumerator_T)
                 return (true, true, true);
             if (namedEts.SpecialType == SpecialType.System_Collections_IEnumerator)
                 return (true, true, false);
             bool implIDisposable = false;
-            bool implIEnumerable = false;
-            bool implGenIEn = false;
+            bool implIEnumerator = false;
+            bool implGenericIEnumerator = false; 
             foreach (INamedTypeSymbol nts in namedEts.AllInterfaces)
             {
-                switch (nts.SpecialType)
-                {
-                    case SpecialType.System_Collections_Generic_IEnumerator_T:
-                        implGenIEn = true;
-                        goto case SpecialType.System_Collections_IEnumerator;
-                    case SpecialType.System_Collections_IEnumerator:
-                        implIEnumerable = true;
-                        goto case SpecialType.System_IDisposable;
-                    case SpecialType.System_IDisposable:
-                        implIDisposable = true;
-                        break;
-                }
-
-                if (implIDisposable && implIEnumerable && implGenIEn) break;
+                (bool genIEnum, bool iEnum, bool iDisp) = (nts.SpecialType,
+                        QueryIsIEnumeratorOfTargetType(nts, targetItemType, token)) switch
+                    {
+                        (_, true) => (true, true, true),
+                        (SpecialType.System_Collections_IEnumerator, _) => (false, true, true),
+                        (SpecialType.System_IDisposable, _) => (false, false, true),
+                        _=> (false, false, false)
+                    };
+                implGenericIEnumerator = implGenericIEnumerator || genIEnum;
+                implIEnumerator = implIEnumerator || iEnum;
+                implIDisposable = implIDisposable || iDisp;
+                
+                if (implIDisposable && implIEnumerator && implGenericIEnumerator) break;
+                
                 token.ThrowIfCancellationRequested();
             }
 
-            return (implIDisposable, implIEnumerable, implGenIEn);
+            return (implIDisposable, implIEnumerator, implGenericIEnumerator);
+        }
+
+        private bool QueryIsIEnumeratorOfTargetType(INamedTypeSymbol nts, INamedTypeSymbol? targetItemType, CancellationToken token)
+        {
+            bool ret = false;
+            if (targetItemType != null)
+            {
+                var genericIEnumImpls = from interfSymb in (Enumerable.Repeat(nts, 1).Concat(nts.AllInterfaces))
+                    where token.TrueOrThrowIfCancellationRequested() && interfSymb.IsGenericType && !interfSymb.IsUnboundGenericType
+                                                   && SymbolEqualityComparer.IncludeNullability.Equals(targetItemType,
+                                                       interfSymb.TypeArguments.FirstOrDefault())
+                                                   && interfSymb?.ConstructedFrom.SpecialType ==
+                                                   SpecialType.System_Collections_Generic_IEnumerator_T
+                    select interfSymb;
+
+                ret = genericIEnumImpls.Any(itm => itm != null);
+            }
+            return ret;
         }
 
         private (bool ValidUseableNotUnboundGeneric, bool ReturnIsValueType, bool PropertyOrGetterIsReadonly, bool
@@ -458,7 +477,7 @@ namespace Cjm.CodeGen
                 IMethodSymbol? moveNext = FindPublicMethodMatchingNameWithZeroParams(namedEts, MoveNextMethodName, token);
                 IMethodSymbol? reset = FindPublicMethodMatchingNameWithZeroParams(namedEts, ResetMethodName, token);
                 IMethodSymbol? dispose = FindPublicMethodMatchingNameWithZeroParams(namedEts, DisposeMethodName, token);
-                return (currentProperty, moveNext, reset, dispose);
+                return (currentProperty, moveNext, dispose, reset);
             }
             catch (OperationCanceledException)
             {

@@ -27,52 +27,52 @@ namespace Cjm.CodeGen
             EnumeratorDataCode.EnumeratorHasPublicResetMethod | EnumeratorDataCode.HasPublicMoveNextReturningBool |
             EnumeratorDataCode.HasPublicResetReturningVoid | EnumeratorDataCode.EnumeratorHasDisposeMethod |
             EnumeratorDataCode.IsIEnumerator | EnumeratorDataCode.EnumeratorImplementsIDisposable);
-        public bool ImplementsIDisposable => CheckHasSingleFlag(EnumeratorDataCode.EnumeratorImplementsIDisposable);
-        public bool IsGenericIEnumerator => CheckHasSingleFlag(EnumeratorDataCode.IsIEnumeratorT);
-        public bool IsIEnumerator => CheckHasSingleFlag(EnumeratorDataCode.IsIEnumerator);
+        public bool ImplementsIDisposable => CheckIndividualFlagIsSet(EnumeratorDataCode.EnumeratorImplementsIDisposable);
+        public bool IsGenericIEnumerator => CheckIndividualFlagIsSet(EnumeratorDataCode.IsIEnumeratorT);
+        public bool IsIEnumerator => CheckIndividualFlagIsSet(EnumeratorDataCode.IsIEnumerator);
         public bool IsDataUnavailable => (_code & ClearMaskStartingPoint) == EnumeratorDataCode.Unavailable;
-        public bool IsEnumeratorAReferenceType => CheckHasSingleFlag(EnumeratorDataCode.EnumeratorIsReferenceType);
-        public bool IsEnumeratorAnInterfaceType => CheckHasSingleFlag(EnumeratorDataCode.EnumeratorIsInterfaceType);
+        public bool IsEnumeratorAReferenceType => CheckIndividualFlagIsSet(EnumeratorDataCode.EnumeratorIsReferenceType);
+        public bool IsEnumeratorAnInterfaceType => CheckIndividualFlagIsSet(EnumeratorDataCode.EnumeratorIsInterfaceType);
         public bool IsEnumeratorAClassType => IsEnumeratorAReferenceType && !IsEnumeratorAnInterfaceType;
-        public bool IsEnumeratorAValueType => CheckHasSingleFlag(EnumeratorDataCode.EnumeratorIsValueType);
+        public bool IsEnumeratorAValueType => CheckIndividualFlagIsSet(EnumeratorDataCode.EnumeratorIsValueType);
         public bool IsEnumeratorAReadOnlyValueType =>
-            IsEnumeratorAValueType && CheckHasSingleFlag(EnumeratorDataCode.EnumeratorIsRefStruct);
+            IsEnumeratorAValueType && CheckIndividualFlagIsSet(EnumeratorDataCode.EnumeratorIsRefStruct);
         public bool IsEnumeratorAStackOnlyValueType =>
-            IsEnumeratorAValueType && CheckHasSingleFlag(EnumeratorDataCode.EnumeratorIsRefStruct);
+            IsEnumeratorAValueType && CheckIndividualFlagIsSet(EnumeratorDataCode.EnumeratorIsRefStruct);
 
         public bool EnumeratorHasPublicCurrent => IsPublicCurrentAReferenceType || IsPublicCurrentAValueType;
-        public bool IsPublicCurrentAValueType => CheckHasSingleFlag(EnumeratorDataCode.PublicCurrentIsValueType);
+        public bool IsPublicCurrentAValueType => CheckIndividualFlagIsSet(EnumeratorDataCode.PublicCurrentIsValueType);
 
         public bool IsPublicCurrentMarkedReadonly => IsPublicCurrentAValueType &&
-                                                     (CheckHasSingleFlag(EnumeratorDataCode
+                                                     (CheckIndividualFlagIsSet(EnumeratorDataCode
                                                           .EnumeratorIsReadOnlyStruct) ||
-                                                      CheckHasSingleFlag(EnumeratorDataCode.PublicCurrentIsReadOnly));
+                                                      CheckIndividualFlagIsSet(EnumeratorDataCode.PublicCurrentIsReadOnly));
         public bool IsPublicCurrentAReferenceType =>
-            CheckHasSingleFlag(EnumeratorDataCode.PublicCurrentIsReferenceType);
+            CheckIndividualFlagIsSet(EnumeratorDataCode.PublicCurrentIsReferenceType);
         public bool IsPublicCurrentReturnedByReference =>
-            CheckHasSingleFlag(EnumeratorDataCode.PublicCurrentIsReturnedByReference);
+            CheckIndividualFlagIsSet(EnumeratorDataCode.PublicCurrentIsReturnedByReference);
         public bool IsPublicCurrentReturnedByReadonlyReference =>
-            CheckHasSingleFlag(EnumeratorDataCode.PublicCurrentIsReturnedByReadOnlyReference);
+            CheckIndividualFlagIsSet(EnumeratorDataCode.PublicCurrentIsReturnedByReadOnlyReference);
         public bool IsPublicCurrentReturnedByValue =>
             !IsPublicCurrentReturnedByReadonlyReference && !IsPublicCurrentReturnedByReference;
 
         public bool DoesEnumeratorImplementGenericIEnumerable =>
-            CheckHasSingleFlag(EnumeratorDataCode.ImplementsGenericIEnumerator);
+            CheckIndividualFlagIsSet(EnumeratorDataCode.ImplementsGenericIEnumerator);
 
         public bool DoesEnumeratorImplementIEnumerable => DoesEnumeratorImplementGenericIEnumerable ||
-                                                          CheckHasSingleFlag(EnumeratorDataCode.ImplementsIEnumerator);
+                                                          CheckIndividualFlagIsSet(EnumeratorDataCode.ImplementsIEnumerator);
 
-        public bool HasPublicMoveNext => CheckHasSingleFlag(EnumeratorDataCode.HasPublicMoveNext);
+        public bool HasPublicMoveNext => CheckIndividualFlagIsSet(EnumeratorDataCode.HasPublicMoveNext);
 
         public bool HasProperMoveNext =>
-            HasPublicMoveNext && CheckHasSingleFlag(EnumeratorDataCode.HasPublicMoveNextReturningBool);
+            HasPublicMoveNext && CheckIndividualFlagIsSet(EnumeratorDataCode.HasPublicMoveNextReturningBool);
 
-        public bool HasPublicDispose => CheckHasSingleFlag(EnumeratorDataCode.HasPublicDispose);
+        public bool HasPublicDispose => CheckIndividualFlagIsSet(EnumeratorDataCode.HasPublicDispose);
         public bool HasProperPublicDispose =>
-            HasPublicDispose && CheckHasSingleFlag(EnumeratorDataCode.HasPublicDisposeReturningVoid);
-        public bool HasPublicReset => CheckHasSingleFlag(EnumeratorDataCode.HasPublicDispose);
+            HasPublicDispose && CheckIndividualFlagIsSet(EnumeratorDataCode.HasPublicDisposeReturningVoid);
+        public bool HasPublicReset => CheckIndividualFlagIsSet(EnumeratorDataCode.HasPublicDispose);
         public bool HasProperPublicReset =>
-            HasPublicDispose && CheckHasSingleFlag(EnumeratorDataCode.HasPublicDisposeReturningVoid);
+            HasPublicDispose && CheckIndividualFlagIsSet(EnumeratorDataCode.HasPublicDisposeReturningVoid);
 
 
         [Pure]
@@ -90,12 +90,7 @@ namespace Cjm.CodeGen
             propertyIsMarkedReadonly = propertyIsMarkedReadonly ||
                                        ((_code & EnumeratorDataCode.EnumeratorIsReadOnlyStruct) ==
                                         EnumeratorDataCode.EnumeratorIsReadOnlyStruct);
-            EnumeratorDataCode clearMask = ClearMaskStartingPoint &
-                                           (~(EnumeratorDataCode.PublicCurrentIsReferenceType |
-                                              EnumeratorDataCode.PublicCurrentIsValueType |
-                                              EnumeratorDataCode.PublicCurrentIsReadOnly |
-                                              EnumeratorDataCode.PublicCurrentIsReturnedByReference |
-                                              EnumeratorDataCode.PublicCurrentIsReturnedByReadOnlyReference));
+
             EnumeratorDataCode valueTypeOrRefTypeMask = returnsValueType
                 ? EnumeratorDataCode.PublicCurrentIsValueType
                 : EnumeratorDataCode.PublicCurrentIsReferenceType;
@@ -111,8 +106,6 @@ namespace Cjm.CodeGen
                 ? EnumeratorDataCode.PublicCurrentIsReadOnly
                 : EnumeratorDataCode.Unavailable;
             var newCode = _code;
-            newCode &= clearMask;
-            Debug.Assert(QueryAreSpecifiedFlagsClear(newCode, clearMask));
 
             EnumeratorDataCode setMask = valueTypeOrRefTypeMask | returnByMask | currentPropRoMask;
             newCode |= setMask;
@@ -130,7 +123,6 @@ namespace Cjm.CodeGen
             if (isRefStruct)
             {
                 setMask |= EnumeratorDataCode.EnumeratorIsRefStruct;
-                clearMask &= ClearInterfaceImplementationDataMask;
             }
 
             var newCode = _code;
@@ -145,7 +137,6 @@ namespace Cjm.CodeGen
         [Pure]
         public EnumeratorData AddEnumeratorTypeInfoForReferenceType(bool isClass, bool isInterface)
         {
-            EnumeratorDataCode clearMask = ClearTypeInfoMask;
             EnumeratorDataCode setMask = (isClass, isInterface) switch
             {
                 (true, true) => throw new ArgumentException($"{nameof(isClass)} (value: {isClass}) and {nameof(isInterface)} (value: {isInterface}) cannot both be true."),
@@ -154,8 +145,6 @@ namespace Cjm.CodeGen
                 (false, false) => EnumeratorDataCode.EnumeratorIsReferenceType,
             };
             var code = _code;
-            code &= clearMask;
-            Debug.Assert(QueryAreSpecifiedFlagsClear(code, clearMask));
             code |= setMask;
             Debug.Assert(QueryAreSpecifiedFlagsSet(code, setMask));
             return new EnumeratorData(code);
@@ -164,10 +153,6 @@ namespace Cjm.CodeGen
         [Pure]
         public EnumeratorData AddPublicMoveNextInfo(bool hasPublicMoveNext, bool publicMoveNextReturnsBool)
         {
-            EnumeratorDataCode clearMask = ClearMaskStartingPoint &
-                                           (~(EnumeratorDataCode.HasPublicMoveNext |
-                                              EnumeratorDataCode.HasPublicMoveNextReturningBool));
-
             EnumeratorDataCode setMask = (hasPublicMoveNext, publicMoveNextReturnsBool) switch
             {
                 (false, true) => throw new ArgumentException("Public MoveNext returning bool implies public MoveNext."),
@@ -176,8 +161,6 @@ namespace Cjm.CodeGen
                 (true, true) => EnumeratorDataCode.HasPublicMoveNext | EnumeratorDataCode.HasPublicMoveNextReturningBool,
             };
             var newCode = _code;
-            newCode &= clearMask;
-            Debug.Assert(QueryAreSpecifiedFlagsClear(newCode, clearMask));
             newCode |= setMask;
             Debug.Assert(QueryAreSpecifiedFlagsSet(newCode, setMask));
             return new EnumeratorData(newCode);
@@ -186,10 +169,6 @@ namespace Cjm.CodeGen
         [Pure]
         public EnumeratorData AddPublicDisposeInfo(bool hasPublicDispose, bool publicDisposeReturnsVoid)
         {
-            EnumeratorDataCode clearMask = ClearMaskStartingPoint &
-                                           (~(EnumeratorDataCode.HasPublicDispose |
-                                              EnumeratorDataCode.HasPublicDisposeReturningVoid));
-
             EnumeratorDataCode setMask = (hasPublicDispose, publicDisposeReturnsVoid) switch
             {
                 (false, true) => throw new ArgumentException("Public Dispose returning bool implies public Dispose."),
@@ -198,8 +177,7 @@ namespace Cjm.CodeGen
                 (true, true) => EnumeratorDataCode.HasPublicDispose | EnumeratorDataCode.HasPublicDisposeReturningVoid,
             };
             var newCode = _code;
-            newCode &= clearMask;
-            Debug.Assert(QueryAreSpecifiedFlagsClear(newCode, clearMask));
+            
             newCode |= setMask;
             Debug.Assert(QueryAreSpecifiedFlagsSet(newCode, setMask));
             return new EnumeratorData(newCode);
@@ -208,9 +186,6 @@ namespace Cjm.CodeGen
         [Pure]
         public EnumeratorData AddPublicResetInfo(bool hasPublicReset, bool publicResetReturnsVoid)
         {
-            EnumeratorDataCode clearMask = ClearMaskStartingPoint &
-                                           (~(EnumeratorDataCode.HasPublicResetMethod |
-                                              EnumeratorDataCode.HasPublicResetReturningVoid));
 
             EnumeratorDataCode setMask = (hasPublicDispose: hasPublicReset, publicDisposeReturnsVoid: publicResetReturnsVoid) switch
             {
@@ -220,8 +195,6 @@ namespace Cjm.CodeGen
                 (true, true) => EnumeratorDataCode.HasPublicResetMethod | EnumeratorDataCode.HasPublicResetReturningVoid,
             };
             var newCode = _code;
-            newCode &= clearMask;
-            Debug.Assert(QueryAreSpecifiedFlagsClear(newCode, clearMask));
             newCode |= setMask;
             Debug.Assert(QueryAreSpecifiedFlagsSet(newCode , setMask));
             return new EnumeratorData(newCode);
@@ -246,8 +219,6 @@ namespace Cjm.CodeGen
             };
 
             var newCode = _code;
-            newCode &= clearMask;
-            Debug.Assert(QueryAreSpecifiedFlagsClear(newCode, clearMask));
             newCode |= setMask;
             Debug.Assert(QueryAreSpecifiedFlagsSet(newCode, setMask));
             Debug.Assert((newCode & EnumeratorDataCode.EnumeratorIsRefStruct ) != EnumeratorDataCode.EnumeratorIsRefStruct);
@@ -257,22 +228,18 @@ namespace Cjm.CodeGen
         [Pure]
         public EnumeratorData AddIDisposableImplementationData(bool implementsIDisposable)
         {
-            if (implementsIDisposable && CheckHasSingleFlag(EnumeratorDataCode.EnumeratorIsRefStruct))
+            if (implementsIDisposable && CheckIndividualFlagIsSet(EnumeratorDataCode.EnumeratorIsRefStruct))
                 throw new ArgumentException("Parameter must be false since this is a ref struct.",
                     nameof(implementsIDisposable));
-            EnumeratorDataCode clearMask = ClearMaskStartingPoint & (~EnumeratorDataCode.EnumeratorImplementsIDisposable);
-
             var newCode = _code;
-            newCode &= clearMask;
-            QueryAreSpecifiedFlagsClear(newCode, clearMask);
             if (implementsIDisposable)
             {
                 newCode |= EnumeratorDataCode.EnumeratorImplementsIDisposable;
                 QueryAreSpecifiedFlagsSet(newCode, EnumeratorDataCode.EnumeratorImplementsIDisposable);
             }
-
             return new EnumeratorData(newCode);
         }
+
         /// <inheritdoc />
         public override int GetHashCode()
         {
@@ -305,7 +272,7 @@ namespace Cjm.CodeGen
         
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private bool CheckHasSingleFlag(EnumeratorDataCode code)
+        private bool CheckIndividualFlagIsSet(EnumeratorDataCode code)
         {
             EnsurePopcount1(code, nameof(code));
             return ((_code & ClearMaskStartingPoint)&  code) == code;

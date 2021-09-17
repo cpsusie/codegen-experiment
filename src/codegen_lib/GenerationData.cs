@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Diagnostics;
+using System.Text;
 using Microsoft.CodeAnalysis;
 
 namespace Cjm.CodeGen
@@ -61,11 +63,119 @@ namespace Cjm.CodeGen
     {
         public static readonly GenerationData InvalidDefault = default;
 
+        internal static (GenerationData? GenerationData, GatheredDataSymbolAnalysisCode Code, EnumeratorDataCodeResult EdCodeResult, string AdditionalErrorInfo) TryCreateGenerationData(GatheredData gd)
+        {
+            if (gd == null) throw new ArgumentNullException(nameof(gd));
+            
+            (GatheredDataSymbolAnalysisCode symbolQueryResult, string extraSymbolErrorInfo) = QueryHasAllNeededSymbols(gd);
+            GenerationData? dataRet = null;
+            string extraInfo = string.Empty;
+            EnumeratorDataCodeResult edDataRes = EnumeratorDataCodeResult.Ok;
+            if (symbolQueryResult != GatheredDataSymbolAnalysisCode.Ok)
+            {
+                extraInfo = extraSymbolErrorInfo;
+            }
+            else if (gd.Ed is {} enumeratorData)
+            {
+                StringBuilder? log = null;
+                if (enumeratorData.IsDataUnavailable)
+                {
+                    AppendFaultData(ref log, ref edDataRes, EnumeratorDataCodeResult.DataUnavailable,
+                        "Enumerator data code has no data stored therein.");
+                }
+
+                if (enumeratorData.IsGenericIEnumerator)
+                {
+                    AppendFaultData(ref log, ref edDataRes, EnumeratorDataCodeResult.IsIEnumeratorT,
+                        "The enumerator is of type IEnumeratorT itself, so use of this library for it is of no benefit.");
+                }
+
+                if (enumeratorData.IsIEnumerator)
+                {
+                    AppendFaultData(ref log, ref edDataRes, EnumeratorDataCodeResult.IsIEnumerator,
+                        "The enumerator is of type IEnumerator itself, so use of this library for it is of no benefit.");
+                }
+
+                if (!enumeratorData.HasPublicMoveNext)
+                {
+                    AppendFaultData(ref log, ref edDataRes, EnumeratorDataCodeResult.LacksProperMoveNext,
+                        "Enumerator type does not have a public MoveNext method.");
+                }
+
+                if (!enumeratorData.HasProperMoveNext)
+                {
+                    AppendFaultData(ref log, ref edDataRes, EnumeratorDataCodeResult.LacksProperMoveNext,
+                        $"Enumerator type's public MoveNext method does not return {nameof(Boolean)} or does not have an empty parameter list. ");
+                }
+
+                if (!enumeratorData.EnumeratorHasPublicCurrent)
+                {
+                    AppendFaultData(ref log, ref edDataRes, EnumeratorDataCodeResult.LacksPublicCurrent,
+                        "Enumerator type lacks a Public Current property with a public getter or it returns an invalid return type.");
+                }
+
+                if (edDataRes == EnumeratorDataCodeResult.Ok)
+                {
+                    dataRet = new GenerationData(enumeratorData, gd.TargetItemType!, gd.TargetTypeCollection,
+                        gd.StaticClassToAugment!, gd.GetEnumeratorMethod!, gd.EnumeratorType!,
+                        gd.EnumeratorCurrentProperty!, gd.EnumeratorMoveNextMethod!, gd.EnumeratorResetMethod,
+                        gd.EnumeratorDisposeMethod);
+                }
+                else
+                {
+                    extraInfo = log?.ToString() ?? string.Empty;
+                }
+            }
+            else
+            {
+                symbolQueryResult = GatheredDataSymbolAnalysisCode.MissingEnumeratorDataValue;
+                extraInfo = "A value for enumerator data code was missing.";
+            }
+
+            Debug.Assert((dataRet == null) == (symbolQueryResult != GatheredDataSymbolAnalysisCode.Ok ||
+                                               edDataRes != EnumeratorDataCodeResult.IsIEnumerator));
+            return (dataRet, symbolQueryResult, edDataRes, extraInfo);
+
+            static void AppendFaultData(ref StringBuilder? sb, ref EnumeratorDataCodeResult toUpdate,
+                EnumeratorDataCodeResult flagToAdd, string errMsg)
+            {
+                sb ??= new();
+                toUpdate |= flagToAdd;
+                sb.AppendLine(errMsg);
+            }
+        }
+
+        private static (GatheredDataSymbolAnalysisCode Result, string ExtraInfo) QueryHasAllNeededSymbols(GatheredData gd)
+        {
+            StringBuilder sb = new();
+            GatheredDataSymbolAnalysisCode code = GatheredDataSymbolAnalysisCode.Ok;
+            CheckForSymbolAndLogAbsence(gd.StaticClassToAugment, ref code,
+                GatheredDataSymbolAnalysisCode.OtherMissingSymbolOrSymbols, sb, "Missing symbol for class to augment.");
+            CheckForSymbolAndLogAbsence(gd.TargetTypeCollection, ref code,
+                GatheredDataSymbolAnalysisCode.OtherMissingSymbolOrSymbols, sb, "No valid target class specified.");
+            CheckForSymbolAndLogAbsence(gd.GetEnumeratorMethod, ref code, GatheredDataSymbolAnalysisCode.NoPublicGetEnumeratorMethod, sb);
+            CheckForSymbolAndLogAbsence(gd.EnumeratorType, ref code , GatheredDataSymbolAnalysisCode.GetEnumeratorMethodDoesNotReturnValidObject, sb);
+            CheckForSymbolAndLogAbsence(gd.EnumeratorCurrentProperty, ref code, GatheredDataSymbolAnalysisCode.EnumeratorReturnedLacksPublicCurrentGetterProperty, sb);
+            CheckForSymbolAndLogAbsence(gd.EnumeratorMoveNextMethod, ref code, GatheredDataSymbolAnalysisCode.EnumeratorLacksPublicMoveNextPropertyReturningBool, sb);
+            return (code, sb.ToString());
+
+            static void CheckForSymbolAndLogAbsence<TSymbol>(TSymbol? symbol, ref GatheredDataSymbolAnalysisCode codeToUpdate, GatheredDataSymbolAnalysisCode failureCode, StringBuilder log, string? extraFailureMessage= null)
+                where TSymbol : ISymbol
+            {
+                if (symbol == null)
+                {
+                    codeToUpdate |= failureCode;
+                    if (!string.IsNullOrWhiteSpace(extraFailureMessage))
+                        log.AppendLine(extraFailureMessage);
+                }
+            }
+        }
+
         private GenerationData(EnumeratorData ed, INamedTypeSymbol targetItemType,
             INamedTypeSymbol? targetTypeCollection, INamedTypeSymbol staticClassToAugment,
             IMethodSymbol getEnumeratorMethod, ITypeSymbol enumeratorType, IPropertySymbol enumeratorCurrentProperty,
-            IMethodSymbol enumeratorMoveNextMethod, IMethodSymbol enumeratorResetMethod,
-            IMethodSymbol enumeratorDisposeMethod)
+            IMethodSymbol enumeratorMoveNextMethod, IMethodSymbol? enumeratorResetMethod,
+            IMethodSymbol? enumeratorDisposeMethod)
         {
             _ed = ed;
             _targetItemType = targetItemType;
@@ -187,6 +297,31 @@ namespace Cjm.CodeGen
         private static readonly LocklessWriteOnce<UninitializedSymbols> TheUninitializedNamedTypeSymbol;
         
 
+    }
+
+    [Flags]
+    public enum GatheredDataSymbolAnalysisCode : byte
+    {
+        Ok =                                                    0x00,
+        NoPublicGetEnumeratorMethod =                           0x01,
+        GetEnumeratorMethodDoesNotReturnValidObject=            0x02,
+        EnumeratorReturnedLacksPublicCurrentGetterProperty=     0x04,
+        EnumeratorLacksPublicMoveNextPropertyReturningBool=     0x08,
+        OtherMissingSymbolOrSymbols =                           0x10,
+        MissingEnumeratorDataValue =                            0x20,
+        DataUnavailable =                                       0x40,
+    }
+
+    [Flags]
+    public enum EnumeratorDataCodeResult : byte
+    {
+        Ok =                        0x00,
+        DataUnavailable =           0x01,
+        IsIEnumerator =             0x02,
+        IsIEnumeratorT =            0x04,
+        LacksPublicCurrent=         0x08,
+        LacksMoveNext=              0x10,
+        LacksProperMoveNext=        0x20,
     }
 
     internal static class GatheredDataComparisonHelper
