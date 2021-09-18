@@ -1,17 +1,80 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Text;
+using LoggerLibrary;
 using Microsoft.CodeAnalysis;
 
 namespace Cjm.CodeGen
 {
+    internal readonly struct GatheredDataRejectionReason : IEquatable<GatheredDataRejectionReason>
+    {
+        public static GatheredDataRejectionReason CreateRejectionReason(GatheredDataSymbolAnalysisCode gatheredSymbol,
+            EnumeratorDataCodeResult enumeratorResult, string explanation)
+        {
+            if (explanation == null) throw new ArgumentNullException(nameof(explanation));
+            if (gatheredSymbol == GatheredDataSymbolAnalysisCode.Ok &&
+                enumeratorResult == EnumeratorDataCodeResult.Ok && string.IsNullOrWhiteSpace(explanation))
+            {
+                throw new ArgumentException("To create a non-rejection rejection reason, please use " +
+                                            nameof(DefaultNotRejectedValue) + ".");
+            }
+            return new GatheredDataRejectionReason(gatheredSymbol, enumeratorResult, explanation);
+        }
 
+        public static GatheredDataRejectionReason DefaultNotRejectedValue { get; } = default;
+        public GatheredDataSymbolAnalysisCode SymbolCode { get;  }
+        public EnumeratorDataCodeResult EnumeratorDataCode { get; }
+        public string AdditionalErrorInfo => _additionalInfo ?? string.Empty;
+        public bool IsRejection => SymbolCode != GatheredDataSymbolAnalysisCode.Ok ||
+                                   EnumeratorDataCode != EnumeratorDataCodeResult.Ok ||
+                                   !string.IsNullOrWhiteSpace(AdditionalErrorInfo);
+
+        public override int GetHashCode()
+        {
+            int hash = SymbolCode.GetHashCode();
+            unchecked
+            {
+                hash = (hash * 397) ^ EnumeratorDataCode.GetHashCode();
+                hash = (hash * 397) ^ ErrorInfoComparer.GetHashCode(AdditionalErrorInfo);
+            }
+            return hash;
+        }
+
+        /// <inheritdoc />
+        public override bool Equals(object? obj) => obj is GatheredDataRejectionReason gdr && gdr == this;
+        public bool Equals(GatheredDataRejectionReason other) => other == this;
+        public static bool operator ==(in GatheredDataRejectionReason lhs, in GatheredDataRejectionReason rhs) =>
+            lhs.SymbolCode == rhs.SymbolCode && lhs.EnumeratorDataCode == rhs.EnumeratorDataCode &&
+            ErrorInfoComparer.Equals(lhs.AdditionalErrorInfo, rhs.AdditionalErrorInfo);
+        public static bool operator !=(in GatheredDataRejectionReason lhs, in GatheredDataRejectionReason rhs) =>
+            !(lhs == rhs);
+        /// <inheritdoc />
+        public override string ToString() => IsRejection
+            ? ("Rejected.  Symbol Analysis Result: [" + SymbolCode.ToString() + "]; Enumerator Analysis Result: [" +
+               EnumeratorDataCode + "]; Additional Info: [" + AdditionalErrorInfo + "].")
+            : "NOT REJECTED";
+        
+
+        private GatheredDataRejectionReason(GatheredDataSymbolAnalysisCode gdR, EnumeratorDataCodeResult edcR,
+            string addtlInfo)
+        {
+            SymbolCode = gdR;
+            EnumeratorDataCode = edcR;
+            _additionalInfo = addtlInfo ?? throw new ArgumentNullException(nameof(addtlInfo));
+        }
+        
+        private readonly string? _additionalInfo;
+        private static readonly TrimmedStringComparer ErrorInfoComparer = TrimmedStringComparer.TrimmedOrdinalIgnoreCase;
+        
+    }
     internal sealed record GatheredData(EnumeratorData? Ed, INamedTypeSymbol? TargetItemType,
         INamedTypeSymbol? TargetTypeCollection, INamedTypeSymbol? StaticClassToAugment,
         IMethodSymbol? GetEnumeratorMethod, ITypeSymbol? EnumeratorType, IPropertySymbol? EnumeratorCurrentProperty,
         IMethodSymbol? EnumeratorMoveNextMethod, IMethodSymbol? EnumeratorResetMethod,
-        IMethodSymbol? EnumeratorDisposeMethod) 
+        IMethodSymbol? EnumeratorDisposeMethod, GatheredDataRejectionReason RejectionReason)
     {
+        
+
         /// <inheritdoc />
         public override int GetHashCode()
         {
@@ -63,7 +126,8 @@ namespace Cjm.CodeGen
     {
         public static readonly GenerationData InvalidDefault = default;
 
-        internal static (GenerationData? GenerationData, GatheredDataSymbolAnalysisCode Code, EnumeratorDataCodeResult EdCodeResult, string AdditionalErrorInfo) TryCreateGenerationData(GatheredData gd)
+        internal static (GenerationData? GenerationData, GatheredDataSymbolAnalysisCode Code, 
+            EnumeratorDataCodeResult EdCodeResult, string AdditionalErrorInfo) TryCreateGenerationData(GatheredData gd)
         {
             if (gd == null) throw new ArgumentNullException(nameof(gd));
             
@@ -74,6 +138,7 @@ namespace Cjm.CodeGen
             if (symbolQueryResult != GatheredDataSymbolAnalysisCode.Ok)
             {
                 extraInfo = extraSymbolErrorInfo;
+                edDataRes |= EnumeratorDataCodeResult.DataUnavailable;
             }
             else if (gd.Ed is {} enumeratorData)
             {
@@ -82,6 +147,7 @@ namespace Cjm.CodeGen
                 {
                     AppendFaultData(ref log, ref edDataRes, EnumeratorDataCodeResult.DataUnavailable,
                         "Enumerator data code has no data stored therein.");
+                    edDataRes |= EnumeratorDataCodeResult.DataUnavailable;
                 }
 
                 if (enumeratorData.IsGenericIEnumerator)
@@ -133,7 +199,7 @@ namespace Cjm.CodeGen
             }
 
             Debug.Assert((dataRet == null) == (symbolQueryResult != GatheredDataSymbolAnalysisCode.Ok ||
-                                               edDataRes != EnumeratorDataCodeResult.IsIEnumerator));
+                                               edDataRes != EnumeratorDataCodeResult.Ok));
             return (dataRet, symbolQueryResult, edDataRes, extraInfo);
 
             static void AppendFaultData(ref StringBuilder? sb, ref EnumeratorDataCodeResult toUpdate,
@@ -228,7 +294,7 @@ namespace Cjm.CodeGen
         {
             TheUninitializedNamedTypeSymbol = new LocklessWriteOnce<UninitializedSymbols>();
         }
-
+        
         public override int GetHashCode()
         {
             int hash = GatheredDataComparisonHelper.TargetItemTypeComparer.GetHashCode(TargetItemType);
@@ -246,7 +312,7 @@ namespace Cjm.CodeGen
             }
             return hash;
         }
-
+        
         public static bool operator ==(in GenerationData lhs, in GenerationData rhs) => lhs._ed == rhs._ed &&
             GatheredDataComparisonHelper.TargetItemTypeComparer.Equals(lhs.TargetItemType, rhs.TargetItemType) &&
             GatheredDataComparisonHelper.TargetCollectionTypeComparer.Equals(lhs.TargetCollectionType, rhs.TargetCollectionType) &&
@@ -300,7 +366,7 @@ namespace Cjm.CodeGen
     }
 
     [Flags]
-    public enum GatheredDataSymbolAnalysisCode : byte
+    public enum GatheredDataSymbolAnalysisCode : byte //ushort
     {
         Ok =                                                    0x00,
         NoPublicGetEnumeratorMethod =                           0x01,
@@ -313,7 +379,7 @@ namespace Cjm.CodeGen
     }
 
     [Flags]
-    public enum EnumeratorDataCodeResult : byte
+    public enum EnumeratorDataCodeResult : byte //ushort
     {
         Ok =                        0x00,
         DataUnavailable =           0x01,

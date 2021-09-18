@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Cjm.CodeGen.Attributes;
@@ -9,11 +11,12 @@ using HpTimeStamps;
 using LoggerLibrary;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.VisualBasic.Syntax;
 using MonotonicContext = HpTimeStamps.MonotonicStampContext;
 
 namespace Cjm.CodeGen
 {
+
+    internal sealed record GatherSemanticPair(GatheredData Gathered, SemanticData Semantic);
 
     [Generator]
     public sealed class TransformEnumeratorGenerator : ISourceGenerator, IDisposable
@@ -125,6 +128,11 @@ namespace Cjm.CodeGen
                 CancellationToken token = context.CancellationToken;
                 if (context.SyntaxReceiver is EnableAugmentedEnumerationExtensionSyntaxReceiver rec && rec.FreezeAndQueryHasTargetData(Duration.FromSeconds(2), token))
                 {
+                    var augmentUs = rec.TargetData.Select(itm => itm.ClassToAugment);
+                    foreach (var item in augmentUs)
+                    {
+                        TraceLog.LogMessage($"Class to augment name: {item.Identifier.Value}");
+                    }
                     ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableArray<SemanticData>.Builder>.Builder lookup = ClassDeclarationSyntaxExtensions.CreateCdsSortedDicArrayBldr<SemanticData>();
                     for (int i = 0; i < rec.TargetData.Length; ++i)
                     {
@@ -148,20 +156,22 @@ namespace Cjm.CodeGen
                     {
                         ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableHashSet<UsableSemanticData>>
                             useableLookup;
-                        ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableHashSet<GatheredData>>
+                        ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableHashSet<GatherSemanticPair>>
                             notUseableLookup;
                         {
                             ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableArray<SemanticData>> immutable = lookup.MakeImmutable();
                             OnFinalPayloadCreated(immutable);
-                            (useableLookup, notUseableLookup) = ProcessFinalPayload(immutable, context);
+                            (useableLookup, notUseableLookup) = ProcessFinalPayload(ref immutable, context);
                         }
                         token.ThrowIfCancellationRequested();
-                        if (notUseableLookup.Any())
+                        if (notUseableLookup.Any(itm => itm.Value.Any()))
                         {
                             EmitDiagnostics(useableLookup, notUseableLookup, context);
                         }
-                        
-                        
+                        else if (useableLookup.Any())
+                        {
+                            GenerateAll(ref useableLookup, context);
+                        }
                     }
                     else
                     {
@@ -180,44 +190,17 @@ namespace Cjm.CodeGen
             }
         }
 
-        private (ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableHashSet<UsableSemanticData>>
-            useableLookup, ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableHashSet<GatheredData>>
-            notUseableLookup) ProcessFinalPayload(
-            ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableArray<SemanticData>> immutable,
-            GeneratorExecutionContext context) 
+        private void GenerateAll(ref ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableHashSet<UsableSemanticData>> useableLookup, GeneratorExecutionContext context)
         {
             CancellationToken token = context.CancellationToken;
-            var useable = ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableHashSet<UsableSemanticData>>.Empty;
-            var notUseable = ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableHashSet<GatheredData>>.Empty;
             try
             {
-                ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableHashSet<GatheredData>> allGatheredData;
+                foreach (var kvp in useableLookup.Where(kvp => kvp.Value.Any()))
                 {
-                    var bldr =
-                        ImmutableSortedDictionary.CreateBuilder<ClassDeclarationSyntax, ImmutableHashSet<GatheredData>>(
-                            ClassDeclarationSyntaxExtensions.TheComparer);
-                    token.ThrowIfCancellationRequested();
-                    foreach (var kvp in immutable)
+                    foreach (UsableSemanticData item in kvp.Value)
                     {
-                        ClassDeclarationSyntax key = kvp.Key;
-                        ImmutableArray<SemanticData> semanticData = kvp.Value;
-                        var resultSet = ImmutableHashSet<GatheredData>.Empty;
-                        if (semanticData.Any())
-                        {
-                            context.CancellationToken.ThrowIfCancellationRequested();
-                            var hsBldr = ImmutableHashSet.CreateBuilder<GatheredData>();
-                            PopulateGatheredData(key, semanticData, hsBldr, context);
-                            resultSet = hsBldr.ToImmutable();
-                        }
-
-                        bldr.Add(key, resultSet);
+                        Generate(kvp.Key, item, context, token);
                     }
-                    token.ThrowIfCancellationRequested();
-                    allGatheredData = bldr.ToImmutable();
-                }
-                if (allGatheredData.Any())
-                {
-                    (useable, notUseable) = Segregate(allGatheredData, token);
                 }
             }
             catch (OperationCanceledException)
@@ -229,18 +212,139 @@ namespace Cjm.CodeGen
                 TraceLog.LogException(ex);
                 throw;
             }
-            return (useable, notUseable);
-
-
         }
 
-        private (ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableHashSet<UsableSemanticData>> useable, ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableHashSet<GatheredData>> notUseable) 
-            Segregate(ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableHashSet<GatheredData>> allGatheredData, CancellationToken token)
+        private void Generate(ClassDeclarationSyntax kvpKey, UsableSemanticData item, GeneratorExecutionContext context, CancellationToken token)
         {
-            throw new NotImplementedException();
+            using var eel = TraceLog.CreateEel(nameof(TransformEnumeratorGenerator), nameof(Generate),
+                $"Generating for syntax {kvpKey.Identifier.Text} with gen data {item}.");
+            try
+            {
+                token.ThrowIfCancellationRequested();
+                StructIEnumeratorByTValGenerator generator = StructIEnumeratorByTValGenerator.CreateGenerator(Templates.StructIEnumeratorTByVal_Template, kvpKey, item);
+                string generated = generator.Generate();
+                TraceLog.LogMessage(generated);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                TraceLog.LogException(ex);
+                throw;
+            }
         }
 
-        private void PopulateGatheredData(ClassDeclarationSyntax key, ImmutableArray<SemanticData> semanticData, ImmutableHashSet<GatheredData>.Builder gdArrBldr, GeneratorExecutionContext context)
+
+        private (ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableHashSet<UsableSemanticData>>
+            useableLookup, ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableHashSet<GatherSemanticPair>>
+            notUseableLookup) ProcessFinalPayload(
+            ref ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableArray<SemanticData>> immutable,
+            GeneratorExecutionContext context) 
+        {
+            CancellationToken token = context.CancellationToken;
+            var useable = ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableHashSet<UsableSemanticData>>.Empty;
+            var notUseable = ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableHashSet<GatherSemanticPair>>.Empty;
+            try
+            {
+                ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableHashSet<GatherSemanticPair>> allGatheredData;
+                {
+                    var bldr =
+                        ImmutableSortedDictionary.CreateBuilder<ClassDeclarationSyntax, ImmutableHashSet<GatherSemanticPair>>(
+                            ClassDeclarationSyntaxExtensions.TheComparer);
+                    token.ThrowIfCancellationRequested();
+                    foreach (var kvp in immutable)
+                    {
+                        ClassDeclarationSyntax key = kvp.Key;
+                        ImmutableArray<SemanticData> semanticData = kvp.Value;
+                        var resultSet = ImmutableHashSet<GatherSemanticPair>.Empty;
+                        if (semanticData.Any())
+                        {
+                            context.CancellationToken.ThrowIfCancellationRequested();
+                            var hsBldr = ImmutableHashSet.CreateBuilder<GatherSemanticPair>();
+                            PopulateGatheredData(key, semanticData, hsBldr, context);
+                            resultSet = hsBldr.ToImmutable();
+                        }
+
+                        bldr.Add(key, resultSet);
+                    }
+                    token.ThrowIfCancellationRequested();
+                    allGatheredData = bldr.ToImmutable();
+                }
+                if (allGatheredData.Any())
+                {
+                    (useable, notUseable) = Segregate(ref allGatheredData, token);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                TraceLog.LogException(ex);
+                throw;
+            }
+            immutable = ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableArray<SemanticData>>.Empty;
+            return (useable, notUseable);
+        }
+
+        private (ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableHashSet<UsableSemanticData>> useable, ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableHashSet<GatherSemanticPair>> notUseable) 
+            Segregate(ref ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableHashSet<GatherSemanticPair>> allGatheredData, CancellationToken token)
+        {
+            token.ThrowIfCancellationRequested();
+            const int checkCancEvery = 10;
+            int iterCount = 0;
+            var unusableLookupBldr =
+                ImmutableSortedDictionary.CreateBuilder<ClassDeclarationSyntax, ImmutableHashSet<GatherSemanticPair>>(
+                    ClassDeclarationSyntaxExtensions.TheComparer);
+            var useableLookupBldr = ImmutableSortedDictionary.CreateBuilder<ClassDeclarationSyntax, ImmutableHashSet<UsableSemanticData>>(
+                ClassDeclarationSyntaxExtensions.TheComparer);
+            foreach (var kvp in allGatheredData)
+            {
+
+                var gatheredBldr = ImmutableHashSet.CreateBuilder<GatherSemanticPair>();
+                var useableBldr = ImmutableHashSet.CreateBuilder<UsableSemanticData>();
+                foreach (var gathered in kvp.Value)
+                {
+                    if ((++iterCount) % checkCancEvery == 0)
+                        token.ThrowIfCancellationRequested();
+
+                    (GenerationData? generationData, GatheredDataSymbolAnalysisCode gatherCode,
+                            EnumeratorDataCodeResult enumeratorCode, string additionalErrorInfo) =
+                        GenerationData.TryCreateGenerationData(gathered.Gathered);
+                    if (generationData == null)
+                    {
+                        Debug.Assert(gatherCode != GatheredDataSymbolAnalysisCode.Ok ||
+                                     enumeratorCode != EnumeratorDataCodeResult.Ok ||
+                                     !string.IsNullOrWhiteSpace(additionalErrorInfo));
+                        
+                        var rejectedGathered = gathered.Gathered with
+                        {
+                            RejectionReason =
+                            GatheredDataRejectionReason.CreateRejectionReason(gatherCode, enumeratorCode,
+                                additionalErrorInfo)
+                        };
+                        gatheredBldr.Add(gathered with {Gathered = rejectedGathered});
+                    }
+                    else
+                    {
+                        useableBldr.Add(
+                            UsableSemanticData.CreateUseableSemanticData(gathered.Semantic, generationData.Value));
+                    }
+                }
+                if (useableBldr.Any())
+                {
+                    useableLookupBldr.Add(kvp.Key, useableBldr.ToImmutable());
+                }
+                unusableLookupBldr.Add(kvp.Key, gatheredBldr.ToImmutable());
+            }
+            allGatheredData = ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableHashSet<GatherSemanticPair>>.Empty;
+            return (useableLookupBldr.ToImmutable(), unusableLookupBldr.ToImmutable());
+        }
+
+        private void PopulateGatheredData(ClassDeclarationSyntax key, ImmutableArray<SemanticData> semanticData, ImmutableHashSet<GatherSemanticPair>.Builder gdArrBldr, GeneratorExecutionContext context)
         {
             var token = context.CancellationToken;
             token.ThrowIfCancellationRequested();
@@ -256,7 +360,11 @@ namespace Cjm.CodeGen
                     enumeratorDisposeMethod=null;
                 IPropertySymbol? enumeratorCurrentProperty=null;
 
-                INamedTypeSymbol staticClassToAugment = sd.AttributeTargetData.AttributeTypeSymbol;
+               // var semanticModel = context.Compilation.GetSemanticModel(key.Parent!.SyntaxTree);
+               INamedTypeSymbol staticClassToAugment = FindSingleNamedTypeSymbolMatching(key, context);
+
+
+                
                 INamedTypeSymbol? targetTypeCollection = sd.TargetTypeData.TargetTypeSymbol;
                 if (sd.TargetTypeData.IsGoodMatch && targetTypeCollection != null)
                 {
@@ -337,8 +445,11 @@ namespace Cjm.CodeGen
                         }
                     }
                 }
-                gdArrBldr.Add(new GatheredData(ed, targetItemType, targetTypeCollection, staticClassToAugment, getEnumeratorMethod, 
-                    enumeratorType, enumeratorCurrentProperty, enumeratorMoveNextMethod, enumeratorResetMethod, enumeratorDisposeMethod));
+
+                gdArrBldr.Add(new GatherSemanticPair(new GatheredData(ed, targetItemType, targetTypeCollection,
+                    staticClassToAugment, getEnumeratorMethod,
+                    enumeratorType, enumeratorCurrentProperty, enumeratorMoveNextMethod, enumeratorResetMethod,
+                    enumeratorDisposeMethod, GatheredDataRejectionReason.DefaultNotRejectedValue), sd));
             }
         }
 
@@ -520,7 +631,7 @@ namespace Cjm.CodeGen
 
 
         private static Task EmitDiagnostics(ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableHashSet<UsableSemanticData>> useableLookup,
-            ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableHashSet<GatheredData>> notUseableLookup, GeneratorExecutionContext context)
+            ImmutableSortedDictionary<ClassDeclarationSyntax, ImmutableHashSet<GatherSemanticPair>> notUseableLookup, GeneratorExecutionContext context)
         {
             try
             {
@@ -649,6 +760,93 @@ namespace Cjm.CodeGen
                 select propertySymbol).FirstOrDefault();
         }
 
+        private static INamedTypeSymbol FindSingleNamedTypeSymbolMatching(ClassDeclarationSyntax cds,
+            GeneratorExecutionContext context)
+        {
+
+            try
+            {
+                var enclosingNamespaces = cds.Ancestors().OfType<NamespaceDeclarationSyntax>().ToImmutableArray();
+                string enclosingNamespace = string.Empty;
+                if (enclosingNamespaces.Any())
+                {
+                    StringBuilder enclosingNamespaceBuilder = new(enclosingNamespaces.Last().Name.ToString());
+                    foreach (var item in enclosingNamespaces.Reverse().Skip(1))
+                    {
+                        enclosingNamespaceBuilder.AppendFormat(".{0}", item.Name.ToString());
+                    }
+
+                    enclosingNamespace = enclosingNamespaceBuilder.ToString();
+                }
+
+                context.CancellationToken.ThrowIfCancellationRequested();
+
+                return (from symbol in
+                        context.Compilation.GetSymbolsWithName(cds.Identifier.Text, SymbolFilter.Type,
+                            context.CancellationToken).OfType<INamedTypeSymbol>()
+                    where string.Equals(context.Compilation.Assembly.Name, symbol.ContainingAssembly.Name) &&
+                          context.CancellationToken.TrueOrThrowIfCancellationRequested()
+                    let mergedNamespaceName = MergeNamespaceNames(symbol.ContainingNamespace)
+                    where string.Equals(mergedNamespaceName, enclosingNamespace)
+                    select symbol).Single();
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (InvalidOperationException ex)
+            {
+                throw new NoMatchingSymbolForAugmentedClassSyntaxException(cds, ex);
+            }
+            catch (Exception unexpected)
+            {
+                TraceLog.LogException(unexpected);
+                throw;
+            }
+        }
+
+        private static string MergeNamespaceNames(INamespaceSymbol namespaceName)
+        {
+            string ret;
+            ImmutableArray<string> names = ImmutableArray<string>.Empty;
+            {
+                var namesBldr = new List<string>();
+                INamespaceSymbol? current = namespaceName;
+                while (current is { IsGlobalNamespace: false })
+                {
+                    namesBldr.Add(current.Name);
+                    current = current.ContainingNamespace;
+                }
+
+                namesBldr.Reverse();
+                names = namesBldr.ToImmutableArray();
+            }
+
+            switch (names.Length)
+            {
+                case 0:
+                    ret = string.Empty;
+                    break;
+                case 1:
+                    ret = names[0];
+                    break;
+                default:
+                    int dotsToAdd = names.Length - 1 >= 0 ? names.Length - 1 : 0;
+                    StringBuilder sb = new(names.Sum(itm => itm.Length) + dotsToAdd);
+                    foreach (var item in names.Take(names.Length - 1))
+                    {
+                        sb.AppendFormat("{0}.", item);
+                    }
+                    sb.AppendFormat(names.Last());
+                    ret = sb.ToString();
+                    break;
+            }
+            return ret;
+
+
+        }
+
+        
 
         private static readonly ImmutableArray<TypeKind> PermittedEnumeratorTypeKinds =
             ImmutableArray.Create(TypeKind.Class, TypeKind.Struct, TypeKind.Interface);
@@ -664,5 +862,16 @@ namespace Cjm.CodeGen
         private LocklessSetOnlyFlag _isDisposed;
         private readonly IEventPump _eventPump = EventPumpFactorySource.FactoryInstance("TransFEnumGen");
 
+    }
+
+    public sealed class NoMatchingSymbolForAugmentedClassSyntaxException : ApplicationException
+    {
+        public ClassDeclarationSyntax ClassWithNoSymbol { get; }
+
+        internal NoMatchingSymbolForAugmentedClassSyntaxException(ClassDeclarationSyntax cds,
+            InvalidOperationException ex) : base(CreateMessage(cds ?? throw new ArgumentNullException(nameof(cds))),
+            ex ?? throw new ArgumentNullException(nameof(ex))) => ClassWithNoSymbol = cds;
+
+        private static string CreateMessage(ClassDeclarationSyntax cds) => $"Unable to find exactly one matching symbol for declared class [{cds.Identifier.Text}].  Consult inner exception for details.";
     }
 }

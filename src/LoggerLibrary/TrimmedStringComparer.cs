@@ -2,12 +2,22 @@
 
 namespace LoggerLibrary
 {
-    internal sealed class TrimmedStringComparer : StringComparer
+    public sealed class TrimmedStringComparer : StringComparer
     {
 
         public static TrimmedStringComparer TrimmedOrdinal => TheOrdinalComparer.Value;
 
         public static TrimmedStringComparer TrimmedOrdinalIgnoreCase => TheOrdinalIgnoreCaseComparer.Value;
+
+        public static TrimmedStringComparer TrimmedCurrentCultureComparer => TheCurrentCultureComparer.Value;
+
+        public static TrimmedStringComparer TrimmedCurrentCultureIgnoreCaseComparer =>
+            TheCurrentCultureIgnoreCaseComparer.Value;
+
+        public static TrimmedStringComparer TrimmedInvariantCultureComparer => TheInvariantCultureComparer.Value;
+
+        public static TrimmedStringComparer TrimmedInvariantCultureIgnoreCaseComparer =>
+            TheInvariantCultureIgnoreCaseComparer.Value;
 
         /// <inheritdoc />
         public override int Compare(string? x, string? y)

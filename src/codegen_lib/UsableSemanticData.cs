@@ -4,14 +4,15 @@ namespace Cjm.CodeGen
 {
     public sealed class UsableSemanticData : IEquatable<UsableSemanticData?>
     {
-        
+        public static UsableSemanticData CreateUseableSemanticData(SemanticData semantic, in GenerationData gd) =>
+            new (semantic, gd);
         public SemanticData SemanticInfo => _semanticData;
         public ref readonly GenerationData GenerationInfo => ref _generationData;
 
         private UsableSemanticData(SemanticData sd, in GenerationData gd)
         {
             _generationData = gd.IsInvalidDefault
-                ? throw new ArgumentException("Parameter was invalid, uninitialized default value.", nameof(gd))
+                ? throw new ArgumentException(@"Parameter was invalid, uninitialized default value.", nameof(gd))
                 : gd;
             _semanticData = sd ?? throw new ArgumentNullException(nameof(sd));
             _stringRep = new LocklessLazyWriteOnce<string>(GetStringRep);
@@ -32,9 +33,9 @@ namespace Cjm.CodeGen
 
         /// <inheritdoc />
         public override bool Equals(object? obj) => Equals(obj as UsableSemanticData);
-        public static bool operator ==(UsableSemanticData lhs, UsableSemanticData rhs) =>
+        public static bool operator ==(UsableSemanticData? lhs, UsableSemanticData? rhs) =>
             ReferenceEquals(lhs, rhs) || lhs?.Equals(rhs) == true;
-        public static bool operator !=(UsableSemanticData lhs, UsableSemanticData rhs) => !(lhs == rhs);
+        public static bool operator !=(UsableSemanticData? lhs, UsableSemanticData? rhs) => !(lhs == rhs);
 
         /// <inheritdoc />
         public override string ToString() => _stringRep.Value;

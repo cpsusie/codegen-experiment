@@ -1,0 +1,47 @@
+﻿using System;
+using System.Collections;
+using System.Collections.Generic;
+{0}
+
+namespace {1}
+{
+    partial class {2}
+    {
+        {3} struct {4}
+        {
+            // ReSharper disable once ConditionIsAlwaysTrueOrFalse
+            public readonly bool IsDefault => _wrapped == default;
+
+            public static implicit operator {4}({5} collection) =>
+                new WrappedListByVal(collection);
+
+            public static implicit operator {5}({4} stuff) => stuff._wrapped ??
+                throw new InvalidOperationException("Collection has not been initialized.");
+
+            public StructIEnumeratorTByVal GetEnumerator() => new(_wrapped.GetEnumerator());
+
+            //CTOR
+            {6}
+                        
+
+            private {7} TWrappedCollection _wrapped;
+
+            public struct StructIEnumeratorTByVal : IEnumerator<{8}>
+            {
+                //Case is readonly member
+                public {7} {8} Current => _wrapped.Current;
+                {7} object IEnumerator.Current => Current;                              
+
+                public bool MoveNext() => _wrapped.MoveNext();
+
+                internal StructIEnumeratorTByVal({9} enumerator) => _wrapped = enumerator;
+
+                {10}
+
+                {11}
+
+                private {9} _wrapped;
+            }
+        }
+    }    
+}
