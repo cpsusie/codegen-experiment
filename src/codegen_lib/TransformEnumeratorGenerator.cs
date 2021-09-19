@@ -166,7 +166,7 @@ namespace Cjm.CodeGen
                         token.ThrowIfCancellationRequested();
                         if (notUseableLookup.Any(itm => itm.Value.Any()))
                         {
-                            EmitDiagnostics(useableLookup, notUseableLookup, context);
+                            EmitDiagnostics(useableLookup, notUseableLookup, context).Wait(token);
                         }
                         else if (useableLookup.Any())
                         {
@@ -221,9 +221,13 @@ namespace Cjm.CodeGen
             try
             {
                 token.ThrowIfCancellationRequested();
-                StructIEnumeratorByTValGenerator generator = StructIEnumeratorByTValGenerator.CreateGenerator(Templates.StructIEnumeratorTByVal_Template, kvpKey, item);
-                string generated = generator.Generate();
-                TraceLog.LogMessage(generated);
+                StructIEnumeratorByTValGenerator generator =
+                    StructIEnumeratorByTValGenerator.CreateGenerator(Templates.StructIEnumeratorTByVal_Template,
+                        nameof(TransformEnumeratorGenerator), kvpKey, item);
+                (string hint, string code) = generator.Generate();
+                token.ThrowIfCancellationRequested();
+                context.AddSource(hint, code);
+                token.ThrowIfCancellationRequested();
             }
             catch (OperationCanceledException)
             {
@@ -808,7 +812,7 @@ namespace Cjm.CodeGen
         private static string MergeNamespaceNames(INamespaceSymbol namespaceName)
         {
             string ret;
-            ImmutableArray<string> names = ImmutableArray<string>.Empty;
+            ImmutableArray<string> names;
             {
                 var namesBldr = new List<string>();
                 INamespaceSymbol? current = namespaceName;

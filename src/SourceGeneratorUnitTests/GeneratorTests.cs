@@ -38,10 +38,11 @@ namespace SourceGeneratorUnitTests
             const int expectedSyntaxPayloads = 0;
             const int expectedSematicPayloads = 0;
             const int expectedFinalPayloads = 0;
+            const int expectedExtraSyntaxTrees = 0;
 
             string source = SimpleSource;
             ExecuteTest(expectedSyntaxPayloads, expectedSematicPayloads, expectedFinalPayloads, source, 0, 0,
-                ValidateSyntaxPayload, ValidateSemanticPayload, ValidateFinalPayload);
+                expectedExtraSyntaxTrees, ValidateSyntaxPayload, ValidateSemanticPayload, ValidateFinalPayload);
 
             static void ValidateSyntaxPayload(GeneratorTestEnableAugmentSyntaxReceiverPayloadEventArgs e)
             {
@@ -60,17 +61,17 @@ namespace SourceGeneratorUnitTests
         }
 
         [Fact]
-        [SuppressMessage("Assertions", "xUnit2013:Do not use equality check to check for collection size.", Justification = "Oneness of expected count coincidental.")]
         public void TestOneSyntaxReceiverPayload()
         {
             const int expectedSyntaxPayloads = 1;
             const int expectedSematicPayloads = 1;
             const int expectedFinalPayloads = 1;
+            const int expectedExtraSyntaxTrees = 1;
             string source = OneOfEachPayloadType;
             const string decoratedClassName = "AnotherProgram";
 
             ExecuteTest(expectedSyntaxPayloads, expectedSematicPayloads, expectedFinalPayloads, source, 0, 0,
-                ValidateSyntaxPayload, ValidateSemanticPayload, ValidateFinalPayload);
+                expectedExtraSyntaxTrees, ValidateSyntaxPayload, ValidateSemanticPayload, ValidateFinalPayload);
 
 
             static void ValidateSyntaxPayload(GeneratorTestEnableAugmentSyntaxReceiverPayloadEventArgs e)
@@ -111,7 +112,7 @@ namespace SourceGeneratorUnitTests
 
         [SuppressMessage("ReSharper", "ParameterOnlyUsedForPreconditionCheck.Local")]
         private void ExecuteTest(int expectedSyntaxPayloads, int expectedSemanticPayloads, int expectedFinalPayloads,
-            string source, int expectedDiagnostics, int expectedNewCompDx,
+            string source, int expectedDiagnostics, int expectedNewCompDxWarningOrWorse, int expectedExtraSyntaxTrees,
             Action<GeneratorTestEnableAugmentSyntaxReceiverPayloadEventArgs> syntaxPayloadValidator,
             Action<GeneratorTestEnableAugmentSemanticPayloadEventArgs> semanticPayloadValidator,
             Action<GeneratorTestingEnableAugmentedEnumerationFinalPayloadEventArgs> finalValidator)
@@ -120,7 +121,7 @@ namespace SourceGeneratorUnitTests
             Assert.True(expectedSemanticPayloads > -1);
             Assert.True(expectedFinalPayloads > -1);
             Assert.True(expectedDiagnostics> -1);
-            Assert.True(expectedNewCompDx > -1);
+            Assert.True(expectedNewCompDxWarningOrWorse > -1);
             Assert.False(string.IsNullOrWhiteSpace(source));
             Assert.NotNull(syntaxPayloadValidator);
             Assert.NotNull(semanticPayloadValidator);
@@ -139,9 +140,19 @@ namespace SourceGeneratorUnitTests
 
                 newComp = RunGenerators(comp, out diagnostics, generator);
             }
+
+            int actualExtraSyntaxTrees = newComp.SyntaxTrees.Count() - comp.SyntaxTrees.Count();
+            Assert.Equal(expectedExtraSyntaxTrees, actualExtraSyntaxTrees);
             
             ValidateCollectionLength(diagnostics, expectedDiagnostics);
-            ValidateCollectionLength(newComp.GetDiagnostics(), expectedNewCompDx);
+            
+            var newCompDx = newComp.GetDiagnostics().Where(dx =>
+            {
+                DiagnosticSeverity worseSeverity = dx.DefaultSeverity > dx.Severity ? dx.DefaultSeverity : dx.Severity;
+                return worseSeverity >= DiagnosticSeverity.Warning;
+            }).ToImmutableArray();
+
+            ValidateCollectionLength(newCompDx, expectedNewCompDxWarningOrWorse);
 
 
             var syntaxPayloads = payloadArgs.OfType<GeneratorTestEnableAugmentSyntaxReceiverPayloadEventArgs>().ToImmutableArray();

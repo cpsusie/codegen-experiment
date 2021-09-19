@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 {0}
 
 namespace {1}
@@ -13,25 +14,30 @@ namespace {1}
             public readonly bool IsDefault => _wrapped == default;
 
             public static implicit operator {4}({5} collection) =>
-                new WrappedListByVal(collection);
+                new (collection);
 
             public static implicit operator {5}({4} stuff) => stuff._wrapped ??
                 throw new InvalidOperationException("Collection has not been initialized.");
-
+            
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public StructIEnumeratorTByVal GetEnumerator() => new(_wrapped.GetEnumerator());
 
             //CTOR
             {6}
                         
 
-            private {7} TWrappedCollection _wrapped;
+            private {7} {5} _wrapped;
 
-            public struct StructIEnumeratorTByVal : IEnumerator<{8}>
+            public struct StructIEnumeratorTByVal {12}
             {
                 //Case is readonly member
-                public {7} {8} Current => _wrapped.Current;
-                {7} object IEnumerator.Current => Current;                              
+                public {7} {8} Current 
+                {
+                    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                    get => _wrapped.Current;
+                }
 
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
                 public bool MoveNext() => _wrapped.MoveNext();
 
                 internal StructIEnumeratorTByVal({9} enumerator) => _wrapped = enumerator;

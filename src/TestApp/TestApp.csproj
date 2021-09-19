@@ -6,8 +6,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="codegen_lib" Version="0.0.0.17-alpha" />
-    <PackageReference Include="HighPrecisionTimeStamps" Version="1.0.0.2" />
+    <PackageReference Include="codegen_lib" Version="0.0.0.19-alpha" />
+    <PackageReference Include="HighPrecisionTimeStamps" Version="1.0.0.3-alpha" />
     <PackageReference Include="Microsoft.CodeAnalysis" Version="3.11.0" />
   </ItemGroup>
 

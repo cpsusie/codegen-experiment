@@ -4,7 +4,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <Nullable>enable</Nullable>
     <RootNamespace>Cjm.CodeGen</RootNamespace>
-    <Version>0.0.0.17-alpha</Version>
+    <Version>0.0.0.19-alpha</Version>
     <Authors>Christopher P. Susie</Authors>
     <Company>CJM Screws, LLC</Company>
     <Product>CodeGenLibrary</Product>
@@ -15,8 +15,8 @@
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <LangVersion>9.0</LangVersion>
     <Nullable>enable</Nullable>
-    <AssemblyVersion>0.0.0.17</AssemblyVersion>
-    <FileVersion>0.0.0.17</FileVersion>
+    <AssemblyVersion>0.0.0.19</AssemblyVersion>
+    <FileVersion>0.0.0.19</FileVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -44,6 +44,7 @@
     <None Include="$(PkgHighPrecisionTimeStamps)\lib\netstandard2.0\*.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
     <None Include="$(PkgHighPrecisionTimeStamps)\lib\netstandard2.0\*.dll" Pack="true" PackagePath="lib/netstandard2.0/" Visible="true" />
     <Compile Remove="GeneratorTemplates\StructIEnumeratorTByVal_Reference.cs" />
+    <Compile Remove="GeneratorTemplates\StructIEnumeratorTByVal_SampleResult.cs" />
     <None Include="$(OutputPath)\LoggerLibrary.dll" Pack="true" PackagePath="analyzers/dotnet/cs" PrivateAssets="all" Visible="false" />
     <None Include="$(OutputPath)\LoggerLibrary.dll" Pack="true" PackagePath="lib/netstandard2.0/" PrivateAssets="all" Visible="false" />
     <!--<None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="lib/netstandard2.0"/>-->
