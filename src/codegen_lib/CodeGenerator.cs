@@ -50,7 +50,7 @@ namespace Cjm.CodeGen
             kvps[1].Value=  semanticData.GenerationInfo.StaticClassToAugment.ContainingNamespace.ToDisplayString();
             kvps[2].Value = semanticData.GenerationInfo.StaticClassToAugment.Name;
             kvps[3].Value = "public"; //for now
-            kvps[4].Value = $"WrappedListOf{semanticData.GenerationInfo.TargetItemType.Name}ByVal"; //for now
+            kvps[4].Value = $"Wrapped{semanticData.GenerationInfo.TargetCollectionType.Name}Of{semanticData.GenerationInfo.TargetItemType.Name}ByVal"; //for now
             kvps[5].Value = targetCollectionTypeNameNoNamespace;
             string ctorFormatStr = semanticData.GenerationInfo.TargetCollectionType.IsReferenceType
                 ? ReferenceTypeCtorFrmtStr
@@ -79,19 +79,8 @@ namespace Cjm.CodeGen
         public static readonly StructIEnumeratorByTValGenerator InvalidDefault = default;
         public bool IsInvalidDefault => !_initialized;
         public string Template => IsInvalidDefault ? string.Empty : _template;
-
-        public IEnumerable<string> Items
-        {
-            get
-            {
-                if (IsInvalidDefault)
-                    yield break;
-                foreach (string t in _parameters.Values)
-                {
-                    yield return t;
-                }
-            }
-        }
+        public IEnumerable<string> Items => _parameters.Values;
+        public IEnumerable<string> ReplacementKeys => _parameters.Keys;
 
         private StructIEnumeratorByTValGenerator(string template, ImmutableSortedDictionary<string, string> items)
         {
@@ -103,6 +92,7 @@ namespace Cjm.CodeGen
             };
             
             _template = template ?? throw new ArgumentNullException(nameof(template));
+            _regex = new Regex(string.Join("|", items.Keys.Select(Regex.Escape)));
             _initialized = true;
         }
 
@@ -111,7 +101,8 @@ namespace Cjm.CodeGen
 
         private string PerformReplacement()
         {
-            throw new NotImplementedException();
+            var dict = _parameters;
+            return _regex.Replace(_template, m => dict[m.Value]);
         }
 
         public override int GetHashCode()
@@ -196,6 +187,7 @@ namespace Cjm.CodeGen
         }
 
         private readonly ImmutableSortedDictionary<string, string> _parameters;
+        private readonly Regex _regex;
         private readonly string _template;
         private readonly bool _initialized;
 

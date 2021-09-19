@@ -70,9 +70,9 @@ namespace Cjm.CodeGen
         public bool HasPublicDispose => CheckIndividualFlagIsSet(EnumeratorDataCode.HasPublicDispose);
         public bool HasProperPublicDispose =>
             HasPublicDispose && CheckIndividualFlagIsSet(EnumeratorDataCode.HasPublicDisposeReturningVoid);
-        public bool HasPublicReset => CheckIndividualFlagIsSet(EnumeratorDataCode.HasPublicDispose);
+        public bool HasPublicReset => CheckIndividualFlagIsSet(EnumeratorDataCode.HasPublicResetMethod);
         public bool HasProperPublicReset =>
-            HasPublicDispose && CheckIndividualFlagIsSet(EnumeratorDataCode.HasPublicDisposeReturningVoid);
+            HasPublicDispose && CheckIndividualFlagIsSet(EnumeratorDataCode.HasPublicResetReturningVoid);
 
 
         [Pure]
