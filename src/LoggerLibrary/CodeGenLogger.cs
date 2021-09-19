@@ -28,6 +28,20 @@ namespace LoggerLibrary
             }
         }
 
+        public static void SupplyAlternateLoggingPathOrThrow(string fileName)
+        {
+            ICodeGenLogger logger = CodeGenLogImpl.CreateLogger(fileName);
+            try
+            {
+                SupplyAlternateLoggerOrThrow(logger);
+            }
+            catch (Exception)
+            {
+                logger.Dispose();
+                throw;
+            }
+        }
+
         static ICodeGenLogger InitLogger() => CodeGenLogImpl.CreateLogger(FilePath);
 
         private static readonly LocklessLazyWriteOnce<ICodeGenLogger> TheLogger = new LocklessLazyWriteOnce<ICodeGenLogger>(InitLogger);

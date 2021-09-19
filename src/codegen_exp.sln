@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.31613.86
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31710.8
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "codegen_lib", "codegen_lib\codegen_lib.csproj", "{4322AA00-65CF-4CBD-9ACF-98925A7CFCFD}"
 EndProject
@@ -16,7 +16,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LoggerLibrary", "LoggerLibr
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TemplateLibraryTester", "TemplateLibraryTester\TemplateLibraryTester.csproj", "{0E409E08-E55E-4C9B-B0F8-5CA89AFD795C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SourceGeneratorUnitTests", "SourceGeneratorUnitTests\SourceGeneratorUnitTests.csproj", "{CEFDCB9E-21B7-45D1-A321-F0EE8D238F3F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SourceGeneratorUnitTests", "SourceGeneratorUnitTests\SourceGeneratorUnitTests.csproj", "{CEFDCB9E-21B7-45D1-A321-F0EE8D238F3F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cjm.Templates", "Cjm.Templates\Cjm.Templates.csproj", "{1473F594-61EF-46B8-9FF7-38F9A2BE94E1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -44,6 +46,10 @@ Global
 		{CEFDCB9E-21B7-45D1-A321-F0EE8D238F3F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CEFDCB9E-21B7-45D1-A321-F0EE8D238F3F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CEFDCB9E-21B7-45D1-A321-F0EE8D238F3F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1473F594-61EF-46B8-9FF7-38F9A2BE94E1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1473F594-61EF-46B8-9FF7-38F9A2BE94E1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1473F594-61EF-46B8-9FF7-38F9A2BE94E1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1473F594-61EF-46B8-9FF7-38F9A2BE94E1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

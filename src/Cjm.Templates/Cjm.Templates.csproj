@@ -1,0 +1,43 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
+    <WarningsAsErrors>$(WarningsAsErrors);NU1605;CS8618;CS8602</WarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
+    <WarningsAsErrors>$(WarningsAsErrors);NU1605;CS8618;CS8602</WarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="HighPrecisionTimeStamps" Version="1.0.0.4">
+      <IncludeAssets>all</IncludeAssets>
+      <IncludeInPackage>true</IncludeInPackage>
+      <GeneratePathProperty>true</GeneratePathProperty>
+    </PackageReference>
+    
+    <PackageReference Include="Microsoft.CodeAnalysis" Version="3.11.0" />
+    <PackageReference Include="Nullable" Version="1.3.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="System.Collections.Immutable" Version="5.0.0" />
+         <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="true" />
+    <None Include="$(PkgHighPrecisionTimeStamps)\lib\netstandard2.0\*.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Include="$(PkgHighPrecisionTimeStamps)\lib\netstandard2.0\*.dll" Pack="true" PackagePath="lib/netstandard2.0/" Visible="true" />    
+          <None Include="$(OutputPath)\LoggerLibrary.dll" Pack="true" PackagePath="analyzers/dotnet/cs" PrivateAssets="all" Visible="false" />
+    <None Include="$(OutputPath)\LoggerLibrary.dll" Pack="true" PackagePath="lib/netstandard2.0/" PrivateAssets="all" Visible="false" />    
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LoggerLibrary\LoggerLibrary.csproj" />
+  </ItemGroup>
+
+</Project>
