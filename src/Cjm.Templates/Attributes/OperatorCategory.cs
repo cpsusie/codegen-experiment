@@ -7,7 +7,8 @@ using HpTimeStamps;
 
 namespace Cjm.Templates.Attributes
 {
-    public readonly partial struct OperatorSpecifier : IEquatable<OperatorSpecifier>, IComparable<OperatorSpecifier>
+    public readonly partial struct OperatorSpecifier 
+        : IEquatable<OperatorSpecifier>, IComparable<OperatorSpecifier>
     {
         #region Static Predefined Values
         public static readonly OperatorSpecifier UnaryPlus = new(OperatorForm.Unary, OperatorCategory.Arithmetic,
