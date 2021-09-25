@@ -7,7 +7,27 @@ namespace Cjm.Templates
 {
     public readonly struct ParameterSpecifier : IEquatable<ParameterSpecifier>
     {
-        public Type InputParameterType => _inputParameterType ?? typeof(void);
+        public static ParameterSpecifier CreateParameterSpecifier(Type t, NullabilitySpecifier specifier,
+            PassBySpecifier passBy) => new(t, specifier, passBy);
+        public static ParameterSpecifier CreateParameterSpecifier(Type t, NullabilitySpecifier specifier) =>
+            new(t, specifier, PassBySpecifier.ByValue);
+        public static ParameterSpecifier CreateParameterSpecifier(Type t, PassBySpecifier passBy) =>
+            new(t, NullabilitySpecifier.Unknown, passBy);
+        public static ParameterSpecifier CreateParameterSpecifier(Type t) =>
+            new(t, NullabilitySpecifier.Unknown, PassBySpecifier.ByValue);
+        public static ParameterSpecifier CreateByValOrRoRefInputParameter(Type t, NullabilitySpecifier ns) =>
+            new(t, ns, PassBySpecifier.ByValueOrByInRef);
+        public static ParameterSpecifier CreateByValOrRoRefInputParameter(Type t) =>
+            new(t, NullabilitySpecifier.Unknown, PassBySpecifier.ByValueOrByInRef);
+
+        public static implicit operator ParameterSpecifier(
+            (Type ParameterType, NullabilitySpecifier NullabilitySpecifier, PassBySpecifier PassBySpecifier ) x) =>
+            new(x.ParameterType, x.NullabilitySpecifier, x.PassBySpecifier);
+        public static implicit operator ParameterSpecifier(Tuple<Type, NullabilitySpecifier, PassBySpecifier> x) =>
+            new((x ?? throw new ArgumentNullException(nameof(x))).Item1, x.Item2, x.Item3);
+
+        public bool ValidForInputParam => ParameterType != typeof(void);
+        public Type ParameterType => _inputParameterType ?? typeof(void);
         public NullabilitySpecifier ParameterNullability { get; }
         public PassBySpecifier PassBySpecifier { get; }
 
@@ -27,7 +47,7 @@ namespace Cjm.Templates
 
         public override int GetHashCode()
         {
-            int hash = InputParameterType.GetHashCode();
+            int hash = ParameterType.GetHashCode();
             unchecked
             {
                 hash = (hash * 397) ^ ((byte)ParameterNullability);
@@ -39,16 +59,21 @@ namespace Cjm.Templates
         /// <inheritdoc />
         public override bool Equals(object? obj) => obj is ParameterSpecifier s && s == this;
         public static bool operator ==(in ParameterSpecifier lhs, in ParameterSpecifier rhs) =>
-            lhs.InputParameterType == rhs.InputParameterType && lhs.ParameterNullability == rhs.ParameterNullability &&
+            lhs.ParameterType == rhs.ParameterType && lhs.ParameterNullability == rhs.ParameterNullability &&
             lhs.PassBySpecifier == rhs.PassBySpecifier;
         public static bool operator !=(in ParameterSpecifier lhs, in ParameterSpecifier rhs) => !(lhs == rhs);
         public bool Equals(ParameterSpecifier other) => other == this;
         /// <inheritdoc />
         public override string ToString() =>
-            $"[{nameof(InputParameterType)}] -- Type: [{InputParameterType.Name}]; " +
+            $"[{nameof(ParameterType)}] -- Type: [{ParameterType.Name}]; " +
             $"Nullability: [{ParameterNullability}]; PassBy: [{PassBySpecifier}].";
 
-
+        public void Deconstruct(out Type parameterType, out NullabilitySpecifier parameterNullability, out PassBySpecifier passBySpecifier)
+        {
+            parameterType = ParameterType;
+            parameterNullability = ParameterNullability;
+            passBySpecifier = PassBySpecifier;
+        }
 
         private readonly Type? _inputParameterType;
     }

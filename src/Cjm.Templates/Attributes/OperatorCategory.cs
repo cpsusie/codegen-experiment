@@ -46,7 +46,18 @@ namespace Cjm.Templates.Attributes
         public static readonly OperatorSpecifier LeftShift = new(OperatorForm.Binary, OperatorCategory.BitShift,
             OperatorName.LeftShift);
         public static readonly OperatorSpecifier RightShift = new(OperatorForm.Binary, OperatorCategory.BitShift,
-            OperatorName.RightShift); 
+            OperatorName.RightShift);
+
+        public static readonly OperatorSpecifier Addition = new(OperatorForm.Binary, OperatorCategory.Arithmetic,
+            OperatorName.Addition);
+        public static readonly OperatorSpecifier Subtraction = new(OperatorForm.Binary, OperatorCategory.Arithmetic,
+            OperatorName.Subtraction);
+        public static readonly OperatorSpecifier Multiplication = new(OperatorForm.Binary, OperatorCategory.Arithmetic,
+            OperatorName.Multiplication);
+        public static readonly OperatorSpecifier Division = new(OperatorForm.Binary, OperatorCategory.Arithmetic,
+            OperatorName.Division);
+        public static readonly OperatorSpecifier Modulus = new(OperatorForm.Binary, OperatorCategory.Arithmetic,
+            OperatorName.Modulus);
         #endregion
 
         #region Conversion Operators
@@ -96,6 +107,12 @@ namespace Cjm.Templates.Attributes
             dictBldr.Add(LeftShift.Name, LeftShift);
             dictBldr.Add(RightShift.Name, RightShift);
 
+            dictBldr.Add(Addition.Name, Addition);
+            dictBldr.Add(Subtraction.Name, Subtraction);
+            dictBldr.Add(Multiplication.Name, Multiplication);
+            dictBldr.Add(Division.Name, Division);
+            dictBldr.Add(Modulus.Name, Modulus);
+            
             Debug.Assert(dictBldr.Count == OperatorEnumExtensions.DefinedNames.Length);
             SpecifierByNameLookup = dictBldr.ToImmutable();
         } 
@@ -195,6 +212,11 @@ namespace Cjm.Templates.Attributes
         BitwiseNot,
         LeftShift,
         RightShift,
+        Addition,
+        Subtraction,
+        Multiplication,
+        Division,
+        Modulus
     } 
     #endregion
 
