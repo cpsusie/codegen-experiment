@@ -5,7 +5,7 @@ using System.Diagnostics;
 using System.Linq;
 using HpTimeStamps;
 
-namespace Cjm.Templates.Attributes
+namespace Cjm.Templates.ConstraintSpecifiers
 {
     public readonly partial struct OperatorSpecifier 
         : IEquatable<OperatorSpecifier>, IComparable<OperatorSpecifier>

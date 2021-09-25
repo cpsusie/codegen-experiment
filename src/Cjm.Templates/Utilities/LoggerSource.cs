@@ -2,7 +2,7 @@
 using System.Diagnostics;
 using LoggerLibrary;
 
-namespace Cjm.Templates
+namespace Cjm.Templates.Utilities
 {
     internal static class LoggerSource
     {

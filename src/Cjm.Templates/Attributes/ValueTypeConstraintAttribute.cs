@@ -1,12 +1,13 @@
 ﻿using System;
+using Cjm.Templates.ConstraintSpecifiers;
 
 namespace Cjm.Templates.Attributes
 {
     public sealed class ValueTypeConstraintAttribute : ConstraintAttribute, IEquatable<ValueTypeConstraintAttribute>
     {
-        public ValueTypeConstraint Constraint { get; } 
+        public ValueTypeConstraintSpecifier Constraint { get; } 
 
-        public ValueTypeConstraintAttribute() => Constraint =  ValueTypeConstraint.PlainValueTypeConstraint;
+        public ValueTypeConstraintAttribute() => Constraint =  ValueTypeConstraintSpecifier.PlainValueTypeConstraint;
 
         public ValueTypeConstraintAttribute(EnumConstraintType ect) => Constraint = ect;
 
