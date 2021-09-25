@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using HpTimeStamps;
 
-namespace TemplateLibraryTests
+namespace Cjm.Templates
 {
     public readonly struct ParameterSpecifier : IEquatable<ParameterSpecifier>
     {
