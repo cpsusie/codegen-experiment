@@ -1,7 +1,7 @@
 ﻿using System;
 using Cjm.Templates.Attributes;
 
-namespace Cjm.Templates
+namespace Cjm.Templates.ConstraintSpecifiers
 {
     public abstract class StaticOperatorSpecifierBase : StaticOperationSpecifier
     {

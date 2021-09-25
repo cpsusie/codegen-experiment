@@ -2,9 +2,11 @@
 using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
+using Cjm.Templates.Utilities;
+using Cjm.Templates.Utilities.SetOnce;
 using LoggerLibrary;
 
-namespace Cjm.Templates
+namespace Cjm.Templates.ConstraintSpecifiers
 {
     public sealed class StaticMethodSpecifier : StaticOperationSpecifier
     {

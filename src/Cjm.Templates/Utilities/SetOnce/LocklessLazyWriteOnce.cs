@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.Threading;
 using HpTimeStamps;
 
-namespace Cjm.Templates
+namespace Cjm.Templates.Utilities.SetOnce
 {
     [DebuggerDisplay("{DebuggerValue}")]
     public sealed class LocklessLazyWriteOnce<T> where T : class

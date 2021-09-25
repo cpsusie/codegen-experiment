@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using HpTimeStamps;
 
-namespace Cjm.Templates
+namespace Cjm.Templates.ConstraintSpecifiers
 {
     public readonly struct ParameterSpecifier : IEquatable<ParameterSpecifier>
     {

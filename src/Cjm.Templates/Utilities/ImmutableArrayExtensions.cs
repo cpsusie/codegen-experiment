@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Immutable;
-using Cjm.Templates.SetOnce;
+using Cjm.Templates.Utilities.SetOnce;
 
-namespace Cjm.Templates
+namespace Cjm.Templates.Utilities
 {
     internal static class ImmutableArrayExtensions
     {

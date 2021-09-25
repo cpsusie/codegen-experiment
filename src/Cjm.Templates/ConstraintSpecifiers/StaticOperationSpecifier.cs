@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Immutable;
 using System.Linq;
-using Cjm.Templates.SetOnce;
+using Cjm.Templates.Utilities.SetOnce;
 
-namespace Cjm.Templates
+namespace Cjm.Templates.ConstraintSpecifiers
 {
     public abstract class StaticOperationSpecifier : IEquatable<StaticOperationSpecifier>
     {

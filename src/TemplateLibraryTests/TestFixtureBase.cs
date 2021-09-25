@@ -1,5 +1,5 @@
 ﻿using System;
-using Cjm.Templates.SetOnce;
+using Cjm.Templates.Utilities.SetOnce;
 
 namespace TemplateLibraryTests
 {
