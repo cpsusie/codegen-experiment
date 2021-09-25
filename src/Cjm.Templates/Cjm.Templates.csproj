@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <LangVersion>9.0</LangVersion>
+    <LangVersion>preview</LangVersion>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
@@ -22,6 +22,7 @@
       <IncludeInPackage>true</IncludeInPackage>
       <GeneratePathProperty>true</GeneratePathProperty>
     </PackageReference>
+    <PackageReference Include="JetBrains.Annotations" Version="2021.2.0" />
     
     <PackageReference Include="Microsoft.CodeAnalysis" Version="3.11.0" />
     <PackageReference Include="Nullable" Version="1.3.0">
@@ -29,6 +30,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="System.Collections.Immutable" Version="5.0.0" />
+    <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="5.0.0" />
          <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="true" />
     <None Include="$(PkgHighPrecisionTimeStamps)\lib\netstandard2.0\*.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
     <None Include="$(PkgHighPrecisionTimeStamps)\lib\netstandard2.0\*.dll" Pack="true" PackagePath="lib/netstandard2.0/" Visible="true" />    

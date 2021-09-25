@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Threading;
-
+[assembly: InternalsVisibleTo("TemplateLibraryTests")]
 namespace Cjm.Templates.SetOnce
 {
     internal sealed class LocklessConcreteType

@@ -5,6 +5,7 @@ using Cjm.Templates.SetOnce;
 
 namespace Cjm.Templates.Attributes
 {
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface | AttributeTargets.Struct | AttributeTargets.GenericParameter)]
     public abstract class ConstraintAttribute : Attribute, IEquatable<ConstraintAttribute>
     {
         protected Type ConcreteType => _concreteType.ConcreteType;
@@ -36,4 +37,6 @@ namespace Cjm.Templates.Attributes
 
         private readonly LocklessConcreteType _concreteType;
     }
+
+   
 }
