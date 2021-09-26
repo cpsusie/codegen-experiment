@@ -15,6 +15,28 @@ namespace Cjm.Templates.Utilities
 
     }
 
+    public sealed class UninitializedStructAccessException<T> : InvalidOperationException where T : struct
+    {
+        public T UninitializedValue { get; }
+
+        public UninitializedStructAccessException(T uninitializedValue, string? message) 
+            : this(uninitializedValue, message, null){}
+        public UninitializedStructAccessException(T uninitializedValue, string? message, Exception? inner) : base(
+            CreateMessage(uninitializedValue, message, inner), inner) => UninitializedValue = uninitializedValue;
+        public UninitializedStructAccessException(T uninitializedValue, Exception? inner) 
+            : this(uninitializedValue, null, inner) {}
+        public UninitializedStructAccessException(T uninitializedValue) 
+            : this(uninitializedValue, null, null) {}
+
+        static string CreateMessage(T uninitializedValue, string? message, Exception? inner)
+        {
+            const string baseMsg = "Illegal access to uninitialized value of type \"{0}\" (value: {1}).{2}{3}";
+            string additionalMessage = !string.IsNullOrWhiteSpace(message) ? $" Extra information: \"{message}\"." : string.Empty;
+            string consultInnerMessage = inner != null ? " Consult inner exception for details." : string.Empty;
+            return string.Format(baseMsg, typeof(T).Name, uninitializedValue, additionalMessage, consultInnerMessage);
+        }
+    }
+
     public abstract class UninitializedStructArgumentException : ArgumentException
     {
         public abstract Type OffendingStructType { get; }

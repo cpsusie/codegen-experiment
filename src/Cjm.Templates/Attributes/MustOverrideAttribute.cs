@@ -2,7 +2,7 @@
 
 namespace Cjm.Templates.Attributes
 {
-    [AttributeUsage(AttributeTargets.Interface, AllowMultiple = true)]
+    [AttributeUsage(AttributeTargets.Interface | AttributeTargets.GenericParameter, AllowMultiple = true)]
     public sealed class MustOverrideAttribute : Attribute, IEquatable<MustOverrideAttribute>
     {
         public MustOverrideAttributeTarget MustOverride { get; }
