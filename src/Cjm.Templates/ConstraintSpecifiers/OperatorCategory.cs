@@ -273,6 +273,62 @@ namespace Cjm.Templates.ConstraintSpecifiers
 
             private OperatorNameComparer() { }
         }
-    } 
+    }
     #endregion
+
+    namespace OperatorFormSpecifierDelegates
+    {
+        public delegate bool StandardRefTypeEqRelCheckOpForm<T>(T? lhs, T? rhs) where T : class;
+        public delegate bool StandardValTypeEqRelCheckOpForm<T>(T lhs, T rhs) where T : struct;
+        public delegate bool RoRefValueTypeEqRelCheckOpForm<T>(in T lhs, in T rhs) where T : struct;
+        public delegate bool MixOneValueTypeEqRelCheckOpForm<T>(T lhs, in T rhs) where T : struct;
+        public delegate bool MixTwoValueTypeEqRelCheckOpForm<T>(in T lhs, T rhs) where T : struct;
+
+
+        public delegate T IncDecOpForm<T>(T incOrDecMe) where T : notnull;
+        public delegate T UnaryArithOrBitwiseOpForm<T>(T val) where T : notnull;
+        public delegate TTarget StandardCastOpForm<TSource, TTarget>(TSource value)
+            where TSource : notnull where TTarget : notnull;
+        public delegate TTarget SourceByRoRefCastOpForm<TSource, TTarget>(in TSource source)
+            where TSource : struct where TTarget : notnull;
+        public delegate ref readonly TTarget TargetByRoRefCastOpForm<TSource, TTarget>(TSource source)
+            where TSource : notnull where TTarget : struct;
+        public delegate ref readonly TTarget SourceAndTargetByRoRefCastOpForm<TSource, TTarget>(in TSource source)
+            where TSource : struct where TTarget : struct;
+
+
+        public delegate T StandardBinOpForm<T>(T leftOperand, T rightOperand) where T : notnull;
+        public delegate T ByRoRefBinOpForm<T>(in T leftOperand, in T rightOperand) where T : struct;
+        public delegate T MixOneBinOpForm<T>(in T leftOperand, T rightOperand) where T : struct;
+        public delegate T MixTwoBinOpForm<T>(T leftOperand, in T rightOperand) where T : struct;
+
+        public delegate TResult StandardThreeTypeBinOpForm<TFirstOperand, TSecondOperand, TResult>(
+            TFirstOperand leftOperand, TSecondOperand secondOperand)
+            where TFirstOperand : notnull
+            where TSecondOperand : notnull
+            where TResult : notnull;
+        public delegate TResult ByRoRefThreeTypeBinOpForm<TFirstOperand, TSecondOperand, TResult>(
+            in TFirstOperand leftOperand, in TSecondOperand secondOperand)
+            where TFirstOperand : struct
+            where TSecondOperand : struct
+            where TResult : struct;
+        public delegate TResult MixOneByRoRefThreeTypeBinOpForm<TFirstOperand, TSecondOperand, TResult>(
+            TFirstOperand leftOperand, in TSecondOperand secondOperand)
+            where TFirstOperand : struct
+            where TSecondOperand : struct
+            where TResult : struct;
+        public delegate TResult MixTwoByRoRefThreeTypeBinOpForm<TFirstOperand, TSecondOperand, TResult>(
+            in TFirstOperand leftOperand, TSecondOperand secondOperand)
+            where TFirstOperand : struct
+            where TSecondOperand : struct
+            where TResult : struct;
+
+        public delegate T StandardBitShiftOperatorForm<T>(T shiftMe, T shiftBy) where T : notnull;
+        public delegate T StandardBitShiftIntOperatorForm<T>(T shiftMe, int shiftBy) where T : notnull;
+        public delegate T ByRoRefBitShiftOperatorForm<T>(in T shiftMe, in T shiftBy) where T : struct;
+        public delegate T MixOneBitShiftOperatorForm<T>(in T shiftMe, T shiftBy) where T : struct;
+        public delegate T MixTwoBitShiftOperatorForm<T>(T shiftMe, in T shiftBy) where T : struct;
+        public delegate T ByRoRefBitShiftIntOperatorForm<T>(in T shiftMe, int shiftBy) where T : struct;
+
+    }
 }

@@ -22,30 +22,5 @@ namespace Cjm.Templates.Attributes
             Equals(other as ReferenceTypeConstraintAttributeBase);
         /// <inheritdoc />
         protected sealed override int CalculateHashCode() => Constraint.GetHashCode();
-
-        
-    }
-
-    public sealed class DelegateReferenceTypeConstraintAttribute: ReferenceTypeConstraintAttributeBase
-    {
-        protected override ReferenceTypeConstraintVariant Constraint => _constraint;
-
-        public Type? DelegateMustBeAssignableTo => _constraint.MustBeAssignableToDelegateOfType;
-
-        public DelegateReferenceTypeConstraintAttribute(Type? delegateType) => _constraint = delegateType == null
-            ? DelegateReferenceTypeConstraint.AnyDelegateConstraint
-            : DelegateReferenceTypeConstraint.CreateSpecificDelegateTypeConstraint(delegateType);
-
-        private readonly DelegateReferenceTypeConstraint _constraint;
-    }
-
-    public sealed class ReferenceTypeConstraintAttribute : ReferenceTypeConstraintAttributeBase
-    {
-        protected override ReferenceTypeConstraintVariant Constraint => _constraint;
-
-        public ReferenceTypeConstraintAttribute(ReferenceTypeImplementationConstraintCode code) =>
-            _constraint = code;
-
-        private readonly ReferenceTypeConstraint _constraint;
     }
 }

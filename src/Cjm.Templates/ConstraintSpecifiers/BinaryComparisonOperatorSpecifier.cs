@@ -5,30 +5,20 @@ namespace Cjm.Templates.ConstraintSpecifiers
 {
     public sealed class BinaryComparisonOperatorSpecifier : BinaryOperatorSpecifier
     {
-        public static BinaryComparisonOperatorSpecifier CreateEqualityOperatorSpecifier(Type owningType,
-            ParameterSpecifier firstComparand, ParameterSpecifier secondComparand) =>
-            new(owningType, OperatorSpecifier.CheckEquals, firstComparand, secondComparand);
-        public static BinaryComparisonOperatorSpecifier CreateInequalityOperatorSpecifier(Type owningType,
-            ParameterSpecifier firstComparand, ParameterSpecifier secondComparand) =>
-            new(owningType, OperatorSpecifier.CheckNotEquals, firstComparand, secondComparand);
-        public static BinaryComparisonOperatorSpecifier CreateGreaterThanOperatorSpecifier(Type owningType,
-            ParameterSpecifier firstComparand, ParameterSpecifier secondComparand) =>
-            new(owningType, OperatorSpecifier.GreaterThan, firstComparand, secondComparand);
-        public static BinaryComparisonOperatorSpecifier CreateLessThanOperatorSpecifier(Type owningType,
-            ParameterSpecifier firstComparand, ParameterSpecifier secondComparand) =>
-            new(owningType, OperatorSpecifier.LessThan, firstComparand, secondComparand);
-        public static BinaryComparisonOperatorSpecifier CreateGreaterThanOrEqualOperatorSpecifier(Type owningType,
-            ParameterSpecifier firstComparand, ParameterSpecifier secondComparand) =>
-            new(owningType, OperatorSpecifier.GreaterThanOrEqual, firstComparand, secondComparand);
-        public static BinaryComparisonOperatorSpecifier CreateLessThanOperatorOrEqualSpecifier(Type owningType,
-            ParameterSpecifier firstComparand, ParameterSpecifier secondComparand) =>
-            new(owningType, OperatorSpecifier.LessThanOrEqualTo, firstComparand, secondComparand);
+        public static BinaryComparisonOperatorSpecifier CreateEqualityOperatorSpecifier(Type delegateForm) =>
+            new(delegateForm, OperatorSpecifier.CheckEquals);
+        public static BinaryComparisonOperatorSpecifier CreateInequalityOperatorSpecifier(Type delegateForm) =>
+            new(delegateForm, OperatorSpecifier.CheckNotEquals);
+        public static BinaryComparisonOperatorSpecifier CreateGreaterThanOperatorSpecifier(Type delegateForm) =>
+            new(delegateForm, OperatorSpecifier.GreaterThan);
+        public static BinaryComparisonOperatorSpecifier CreateLessThanOperatorSpecifier(Type delegateForm) =>
+            new(delegateForm, OperatorSpecifier.LessThan);
+        public static BinaryComparisonOperatorSpecifier CreateGreaterThanOrEqualOperatorSpecifier(Type delegateForm) =>
+            new(delegateForm, OperatorSpecifier.GreaterThanOrEqual);
+        public static BinaryComparisonOperatorSpecifier CreateLessThanOperatorOrEqualSpecifier(Type delegateForm) =>
+            new(delegateForm, OperatorSpecifier.LessThanOrEqualTo);
 
-        private BinaryComparisonOperatorSpecifier(Type owningType, OperatorSpecifier specifier,
-            ParameterSpecifier firstOperand, ParameterSpecifier secondOperand) : base(
-            owningType ?? throw new ArgumentNullException(nameof(owningType)), specifier,
-            ParameterSpecifier.CreateParameterSpecifier(typeof(bool), NullabilitySpecifier.NotNull,
-                PassBySpecifier.ByValue), firstOperand, secondOperand)
+        private BinaryComparisonOperatorSpecifier(Type delegateForm, OperatorSpecifier specifier) : base(delegateForm, specifier)
         {
             if (specifier.Category != OperatorCategory.Relational && specifier.Category != OperatorCategory.Equality)
                 throw new ArgumentException(

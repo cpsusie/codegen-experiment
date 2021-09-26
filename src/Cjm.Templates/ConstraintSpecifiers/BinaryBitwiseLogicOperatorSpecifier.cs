@@ -5,20 +5,15 @@ namespace Cjm.Templates.ConstraintSpecifiers
 {
     public sealed class BinaryBitwiseLogicOperatorSpecifier : BinaryOperatorSpecifier
     {
-        public static BinaryBitwiseLogicOperatorSpecifier CreateBitwiseAndOperatorSpecifier(Type owningType,
-            ParameterSpecifier returnType, ParameterSpecifier firstParam, ParameterSpecifier secondParameter) =>
-            new(owningType, OperatorSpecifier.BitwiseAnd, returnType, firstParam, secondParameter);
-        public static BinaryBitwiseLogicOperatorSpecifier CreateBitwiseOrOperatorSpecifier(Type owningType,
-            ParameterSpecifier returnType, ParameterSpecifier firstParam, ParameterSpecifier secondParameter) =>
-            new(owningType, OperatorSpecifier.BitwiseOr, returnType, firstParam, secondParameter);
-        public static BinaryBitwiseLogicOperatorSpecifier CreateBitwiseXorOperatorSpecifier(Type owningType,
-            ParameterSpecifier returnType, ParameterSpecifier firstParam, ParameterSpecifier secondParameter) =>
-            new(owningType, OperatorSpecifier.BitwiseXor, returnType, firstParam, secondParameter);
+        public static BinaryBitwiseLogicOperatorSpecifier CreateBitwiseAndOperatorSpecifier(Type delegateForm) =>
+            new(delegateForm, OperatorSpecifier.BitwiseAnd);
+        public static BinaryBitwiseLogicOperatorSpecifier CreateBitwiseOrOperatorSpecifier(Type delegateForm) =>
+            new(delegateForm, OperatorSpecifier.BitwiseOr);
+        public static BinaryBitwiseLogicOperatorSpecifier CreateBitwiseXorOperatorSpecifier(Type delegateForm) =>
+            new(delegateForm, OperatorSpecifier.BitwiseXor);
 
         /// <inheritdoc />
-        private BinaryBitwiseLogicOperatorSpecifier(Type owningType, OperatorSpecifier specifier,
-            ParameterSpecifier returnType, ParameterSpecifier firstOperand, ParameterSpecifier secondOperand) : base(
-            owningType, specifier, returnType, firstOperand, secondOperand)
+        private BinaryBitwiseLogicOperatorSpecifier(Type delegateForm, OperatorSpecifier specifier) : base(delegateForm, specifier)
         {
             if (specifier.Category != OperatorCategory.BitwiseLogic)
                 throw new ArgumentException(

@@ -3,15 +3,15 @@ using Cjm.Templates.Utilities.SetOnce;
 
 namespace Cjm.Templates.Attributes
 {
-    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface | AttributeTargets.Struct | AttributeTargets.GenericParameter)]
+    
     public abstract class ConstraintAttribute : Attribute, IEquatable<ConstraintAttribute>
     {
-        protected Type ConcreteType => _concreteType.ConcreteType;
+        public Type ConcreteConstraintType => _concreteType.ConcreteType;
         protected string ConcreteTypeName => _concreteType.ConcreteTypeName;
 
         private protected ConstraintAttribute() => _concreteType = new LocklessConcreteType(this);
 
-        public bool Equals(ConstraintAttribute? other) => ConcreteType.Equals(other?.ConcreteType) && IsEqualTo(other);
+        public bool Equals(ConstraintAttribute? other) => ConcreteConstraintType == other?.ConcreteConstraintType && IsEqualTo(other);
         public sealed override bool Equals(object? obj) => Equals(obj as ConstraintAttribute);
         protected abstract string GetImplStringRep();
         protected abstract bool IsEqualTo(ConstraintAttribute? other);
@@ -25,7 +25,7 @@ namespace Cjm.Templates.Attributes
         
         public sealed override int GetHashCode()
         {
-            int hash = ConcreteType.GetHashCode();
+            int hash = ConcreteConstraintType.GetHashCode();
             unchecked
             {
                 hash = (hash * 397) ^ CalculateHashCode();
@@ -35,6 +35,4 @@ namespace Cjm.Templates.Attributes
 
         private readonly LocklessConcreteType _concreteType;
     }
-
-   
 }

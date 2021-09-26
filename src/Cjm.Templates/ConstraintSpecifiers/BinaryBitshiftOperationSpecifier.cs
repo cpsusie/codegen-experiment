@@ -5,17 +5,14 @@ namespace Cjm.Templates.ConstraintSpecifiers
 {
     public sealed class BinaryBitshiftOperationSpecifier : BinaryOperatorSpecifier
     {
-        public static BinaryBitshiftOperationSpecifier CreateLeftShiftOperatorSpecifier(Type owningType,
-            ParameterSpecifier returnType, ParameterSpecifier firstParam, ParameterSpecifier secondParameter) =>
-            new(owningType, OperatorSpecifier.LeftShift, returnType, firstParam, secondParameter);
-        public static BinaryBitshiftOperationSpecifier CreateRightShiftOperatorSpecifier(Type owningType,
-            ParameterSpecifier returnType, ParameterSpecifier firstParam, ParameterSpecifier secondParameter) =>
-            new(owningType, OperatorSpecifier.LeftShift, returnType, firstParam, secondParameter);
+        public static BinaryBitshiftOperationSpecifier CreateLeftShiftOperatorSpecifier(Type delegateForm) =>
+            new(delegateForm, OperatorSpecifier.LeftShift);
+        public static BinaryBitshiftOperationSpecifier CreateRightShiftOperatorSpecifier(Type delegateForm) =>
+            new(delegateForm, OperatorSpecifier.RightShift);
 
         /// <inheritdoc />
-        private BinaryBitshiftOperationSpecifier(Type owningType, OperatorSpecifier specifier,
-            ParameterSpecifier returnType, ParameterSpecifier firstOperand, ParameterSpecifier secondOperand) : base(
-            owningType, specifier, returnType, firstOperand, secondOperand)
+        private BinaryBitshiftOperationSpecifier(Type delegateForm, OperatorSpecifier specifier) : base(
+            delegateForm, specifier)
         {
             if (specifier.Category != OperatorCategory.BitShift)
                 throw new ArgumentException(

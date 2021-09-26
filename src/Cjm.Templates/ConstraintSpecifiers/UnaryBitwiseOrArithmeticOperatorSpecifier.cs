@@ -5,29 +5,19 @@ namespace Cjm.Templates.ConstraintSpecifiers
 {
     public sealed class UnaryBitwiseOrArithmeticOperatorSpecifier : UnaryOperatorSpecifier
     {
-        public static UnaryBitwiseOrArithmeticOperatorSpecifier CreateUnaryPlusOperatorSpecifier(Type owningType,
-            ParameterSpecifier returnType, ParameterSpecifier inputType) =>
-            new(owningType, OperatorSpecifier.UnaryPlus, returnType, inputType);
-
-        public static UnaryBitwiseOrArithmeticOperatorSpecifier CreateUnaryMinusOperatorSpecifier(Type owningType,
-            ParameterSpecifier returnType, ParameterSpecifier inputType) =>
-            new(owningType, OperatorSpecifier.UnaryMinus, returnType, inputType);
-
-        public static UnaryBitwiseOrArithmeticOperatorSpecifier CreateIncrementOperatorSpecifier(Type owningType,
-            ParameterSpecifier returnType, ParameterSpecifier inputType) =>
-            new(owningType, OperatorSpecifier.Increment, returnType, inputType);
-
-        public static UnaryBitwiseOrArithmeticOperatorSpecifier CreateDecrementOperatorSpecifier(Type owningType,
-            ParameterSpecifier returnType, ParameterSpecifier inputType) =>
-            new(owningType, OperatorSpecifier.Decrement, returnType, inputType);
-
-        public static UnaryBitwiseOrArithmeticOperatorSpecifier CreateBitwiseNotOperatorSpecifier(Type owningType,
-            ParameterSpecifier returnType,
-            ParameterSpecifier inputType) => new(owningType, OperatorSpecifier.BitwiseNot, returnType, inputType);
+        public static UnaryBitwiseOrArithmeticOperatorSpecifier CreateUnaryPlusOperatorSpecifier(Type delegateForm) =>
+            new(delegateForm, OperatorSpecifier.UnaryPlus);
+        public static UnaryBitwiseOrArithmeticOperatorSpecifier CreateUnaryMinusOperatorSpecifier(Type delegateForm) =>
+            new(delegateForm, OperatorSpecifier.UnaryMinus);
+        public static UnaryBitwiseOrArithmeticOperatorSpecifier CreateIncrementOperatorSpecifier(Type delegateForm) =>
+            new(delegateForm, OperatorSpecifier.Increment);
+        public static UnaryBitwiseOrArithmeticOperatorSpecifier CreateDecrementOperatorSpecifier(Type delegateForm) =>
+            new(delegateForm, OperatorSpecifier.Decrement);
+        public static UnaryBitwiseOrArithmeticOperatorSpecifier CreateBitwiseNotOperatorSpecifier(Type delegateForm) => 
+            new(delegateForm, OperatorSpecifier.BitwiseNot);
 
 
-        private UnaryBitwiseOrArithmeticOperatorSpecifier(Type owningType, OperatorSpecifier specifier,
-            ParameterSpecifier returnType, ParameterSpecifier inputOperand) : base(owningType, specifier, returnType, inputOperand)
+        private UnaryBitwiseOrArithmeticOperatorSpecifier(Type delegateForm, OperatorSpecifier specifier) : base(delegateForm, specifier)
         {
             if (specifier.Category != OperatorCategory.IncDec && specifier.Category != OperatorCategory.BitwiseLogic &&
                 specifier.Category != OperatorCategory.Arithmetic)

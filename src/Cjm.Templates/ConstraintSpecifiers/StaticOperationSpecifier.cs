@@ -7,25 +7,17 @@ namespace Cjm.Templates.ConstraintSpecifiers
 {
     public abstract class StaticOperationSpecifier : IEquatable<StaticOperationSpecifier>
     {
-        public ParameterSpecifier ReturnType => _returnParameter;
-        public Type OwningType => _owningType;
-        public abstract ImmutableArray<ParameterSpecifier> InputParameterList { get; }
+        public abstract Type OperationFormDelegate { get; }
         public abstract string OperationName { get; }
         public abstract bool IsMethod { get; }
         public bool IsOperator => !IsMethod;
         protected Type ConcreteType => _concreteType.ConcreteType;
         protected string ConcreteTypeName => _concreteType.ConcreteTypeName;
 
-        protected StaticOperationSpecifier(Type owningType, ParameterSpecifier returnParameter)
-        {
-            _owningType = owningType ?? throw new ArgumentNullException(nameof(owningType));
-            _returnParameter = returnParameter;
-            _concreteType = new LocklessConcreteType(this);
-        }
+        protected StaticOperationSpecifier() => _concreteType = new LocklessConcreteType(this);
 
         public bool Equals(StaticOperationSpecifier? other) =>
-            ConcreteType == other?.ConcreteType && _returnParameter == other._returnParameter &&
-            _owningType == other._owningType && InputParameterList.SequenceEqual(other.InputParameterList) &&
+            ConcreteType == other?.ConcreteType && OperationFormDelegate == other.OperationFormDelegate &&
             IsImplEqualTo(other);
         public sealed override bool Equals(object? other) 
             => Equals(other as StaticOperationSpecifier);
@@ -36,18 +28,15 @@ namespace Cjm.Templates.ConstraintSpecifiers
 
         /// <inheritdoc />
         public sealed override string ToString() =>
-            $"[{ConcreteTypeName}] -- OwningType: \t[{OwningType.Name}]; " +
-            $"\t ReturnType: \t[{ReturnType}]; \tOperationName: \t[{OperationName}]; " +
-            $"\tParameter Count: \t[{InputParameterList.Length}]; \t{GetImplStringRep()}";
+            $"[{ConcreteTypeName}] -- OperationName: \t[{OperationName}]; " +
+            $"\tOperation Form: \t[{OperationFormDelegate.Name}]; \t{GetImplStringRep()}";
 
         public sealed override int GetHashCode()
         {
             int hash = ConcreteType.GetHashCode();
             unchecked
             {
-                hash = (hash * 397) ^ _returnParameter.GetHashCode();
-                hash = (hash * 397) ^ _owningType.GetHashCode();
-                hash = (hash * 397) ^ InputParameterList.Length;
+                hash = (hash * 397) ^ OperationFormDelegate.GetHashCode();
                 hash = (hash * 397) ^ GetImplHashCode();
             }
             return hash;
@@ -80,8 +69,7 @@ namespace Cjm.Templates.ConstraintSpecifiers
         }
 
 
-        private readonly ParameterSpecifier _returnParameter;
-        private readonly Type _owningType;
+        
         private readonly LocklessConcreteType _concreteType;
     }
 }

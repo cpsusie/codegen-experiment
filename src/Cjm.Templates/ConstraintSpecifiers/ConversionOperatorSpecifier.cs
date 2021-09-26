@@ -5,21 +5,13 @@ namespace Cjm.Templates.ConstraintSpecifiers
 {
     public sealed class ConversionOperatorSpecifier : UnaryOperatorSpecifier
     {
-        public static ConversionOperatorSpecifier CreateImplicitConversionSpecifier(Type owningType,
-            ParameterSpecifier returnType, ParameterSpecifier sourceType) => new(owningType,
-            OperatorSpecifier.ImplicitConversion, returnType, sourceType);
-
-        public static ConversionOperatorSpecifier CreateExplicitConversionSpecifier(Type owningType,
-            ParameterSpecifier returnType, ParameterSpecifier sourceType) => new(owningType,
-            OperatorSpecifier.ImplicitConversion, returnType, sourceType);
-
-
-        public ParameterSpecifier ConvertFrom => InputParameterList[0];
+        public static ConversionOperatorSpecifier CreateImplicitConversionSpecifier(Type delegateForm) => new(delegateForm, OperatorSpecifier.ImplicitConversion);
+        public static ConversionOperatorSpecifier CreateExplicitConversionSpecifier(Type delegateForm) => new(delegateForm, OperatorSpecifier.ExplicitConversion);
+        
         public bool IsExplicitConversion => Specifier.Name == OperatorName.ExplicitConversion;
         public bool IsImplicitConversion => !IsExplicitConversion;
 
-        private ConversionOperatorSpecifier(Type owningType, OperatorSpecifier specifier, ParameterSpecifier returnType,
-            ParameterSpecifier inputType) : base(owningType, specifier, returnType, inputType)
+        private ConversionOperatorSpecifier(Type delegateForm, OperatorSpecifier specifier) : base(delegateForm, specifier)
         {
             if (specifier.Category != OperatorCategory.Casting)
                 throw new ArgumentException(
