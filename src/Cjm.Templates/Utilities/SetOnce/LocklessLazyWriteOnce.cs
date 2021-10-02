@@ -5,6 +5,131 @@ using HpTimeStamps;
 
 namespace Cjm.Templates.Utilities.SetOnce
 {
+    public sealed class LocklessLazyWriteOnceValueType<T> where T : struct
+    {
+        public bool IsSet
+        {
+            get
+            {
+                SettingCode value = (SettingCode) Volatile.Read(ref _state);
+                return value == SettingCode.Set;
+            }
+        }
+
+        private SettingCode State
+        {
+            get
+            {
+                int value = Volatile.Read(ref _state);
+                return (SettingCode)value;
+            }
+        }
+
+        public T Value
+        {
+            get
+            {
+                var state = (SettingCode)_state;
+                if (state == SettingCode.Set)
+                {
+                    return _value;
+                }
+
+                state = State;
+                while (state != SettingCode.Set)
+                {
+                    if (TryBegin())
+                    {
+
+                        try
+                        {
+                            _value = _factory();
+                            FinishOrThrow();
+                        }
+                        catch (LocklessMultiStepException)
+                        {
+                            throw;
+                        }
+                        catch (Exception ex)
+                        {
+                            CancelOrThrow();
+                            throw new DelegateThrewException(nameof(_factory), _factory, ex);
+                        }
+                    }
+                    state = State;
+                }
+                Debug.Assert(state == SettingCode.Set);
+                return _value;
+            }
+        }
+
+        public LocklessLazyWriteOnceValueType(Func<T> lazyInitFactory) =>
+            _factory = lazyInitFactory ?? throw new ArgumentNullException(nameof(lazyInitFactory));
+
+        public bool TrySet(T setMe)
+        {
+            if (TryBegin())
+            {
+                _value = setMe;
+                FinishOrThrow();
+                return true;
+            }
+            return false;
+        }
+
+        /// <inheritdoc />
+        public override string ToString() => $"[{nameof(LocklessLazyWriteOnceValueType<T>)}] -- " + State switch
+        {
+            SettingCode.Setting => "[SET IN PROGRESS].",
+            SettingCode.Set => $"Value: [{_value.ToString()}].",
+            _ => "[NOT SET]."
+        };
+
+        private bool TryBegin()
+        {
+            const int wantToBe = (int) SettingCode.Setting;
+            const int needToBeNow = (int) SettingCode.Clear;
+            return Interlocked.CompareExchange(ref _state, wantToBe, needToBeNow) == needToBeNow;
+        }
+
+        private bool TryFinish()
+        {
+            const int wantToBe = (int) SettingCode.Set;
+            const int needToBeNow = (int) SettingCode.Setting;
+            return Interlocked.CompareExchange(ref _state, wantToBe, needToBeNow) == needToBeNow;
+        }
+
+        private bool TryCancel()
+        {
+            const int wantToBe = (int) SettingCode.Clear;
+            const int needToBeNow = (int) SettingCode.Setting;
+            return Interlocked.CompareExchange(ref _state, wantToBe, needToBeNow) == needToBeNow;
+        }
+
+        private void FinishOrThrow()
+        {
+            if (!TryFinish())
+                throw new LocklessMultiStepException($"The state was not {nameof(SettingCode.Setting)} at moment of call.");
+        }
+
+        private void CancelOrThrow()
+        {
+            if (!TryCancel())
+                throw new InvalidOperationException($"The state was not {nameof(SettingCode.Setting)} at moment of call.");
+        }
+        
+        private readonly Func<T> _factory;
+        private int _state;
+        private T _value;
+
+        private enum SettingCode 
+        {
+            Clear = 0,
+            Setting = 1,
+            Set = 2
+        }
+    }
+
     [DebuggerDisplay("{DebuggerValue}")]
     public sealed class LocklessLazyWriteOnce<T> where T : class
     {

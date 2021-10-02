@@ -1,13 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Linq.Expressions;
-using System.Numerics;
 using System.Reflection;
-using System.Reflection.Metadata.Ecma335;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
@@ -170,7 +166,7 @@ namespace TemplateLibrary
                 return;
             }
 
-            Type t = typeof(void);
+            
             IEnumerable<(MethodInfo Meth, Type Ret)> getEnumeratorMethodsWithReturnTypes =
                 from methodInfo in Collection.GetMethods(BindingFlags.Instance | BindingFlags.Public)
                 where 
@@ -213,7 +209,7 @@ namespace TemplateLibrary
                 }
             //,, , firstItemType.FullName
             (MethodInfo firstGetEnumeratorMethod, Type firstEnumeratorType, Type firstItemType, PropertyInfo firstPropertyInfo)  = firstMatch.Value;
-                Func<string, string, string, string, StringBuilder> sbCtor = static (string getEnumMn, string enumTypeN, string piN, string itmTypeName ) 
+                Func<string, string, string, string, StringBuilder> sbCtor = static (getEnumMn, enumTypeN, piN, itmTypeName ) 
                     => new StringBuilder($"There are too many possible GetEnumerator matches for this collection to be legal.  The first identified one had a matching method called {getEnumMn} which returned an enumerator of type {enumTypeN}.  This enumerator had a current property called {piN} which returned an item type called {itmTypeName}." +
                     $"  There were, however additional matches:{Environment.NewLine}");
                 StringBuilder? tooManyMatches = null;
@@ -393,7 +389,7 @@ namespace TemplateLibrary
         private const string ResetMethodName = "Reset";
     }
 
-    public static partial class BetterListExtenderForPortableMonotonicStamp
+    public static class BetterListExtenderForPortableMonotonicStamp
     {
         public static TransformEnumerableWrapperForPortableMonotonicStamp<TOut> Select<TOut>(
             this BetterList<PortableMonotonicStamp> bl, RefFunc<TOut, PortableMonotonicStamp> transformation)
@@ -678,7 +674,7 @@ namespace TemplateLibrary
         public BetterList(IEnumerable<T> source)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
-            (T[] array, long capcity, long count) = (source) switch
+            (T[] array, long _, long count) = (source) switch
             {
                 BetterList<T> bl =>  (bl._array.ToArray(), bl._array.LongLength, bl._count),
                 T[] arr => (arr, arr.LongLength, arr.LongLength),
@@ -815,7 +811,6 @@ namespace TemplateLibrary
             T ret = _array[idx];
             if (idx < _count - 1)
             {
-                long afterIndex = idx + 1;
                 for (long i = idx + 1; i < _count; ++i)
                 {
                     _array[i - 1] = _array[i];
@@ -925,7 +920,7 @@ namespace TemplateLibrary
             BetterList<PortableMonotonicStamp> bl;
             {
 
-                var startedAt = HpTimeStamps.MonotonicTimeStampUtil<MonotonicStampContext>.StampNow;
+                var startedAt = MonotonicTimeStampUtil<MonotonicStampContext>.StampNow;
                 bl = CreateRandomBetterList((int)size);
                 //bl = new BetterList<PortableMonotonicStamp>(size);
                 //while (bl.Count < size)
@@ -934,7 +929,7 @@ namespace TemplateLibrary
                 //    bl.Add(in pms);
                 //}
                 timeSpentPopulating =
-                    HpTimeStamps.MonotonicTimeStampUtil<MonotonicStampContext>.StampNow - startedAt;
+                    MonotonicTimeStampUtil<MonotonicStampContext>.StampNow - startedAt;
             }
             
             

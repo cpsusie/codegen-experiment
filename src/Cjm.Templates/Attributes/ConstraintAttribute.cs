@@ -6,6 +6,7 @@ namespace Cjm.Templates.Attributes
     
     public abstract class ConstraintAttribute : Attribute, IEquatable<ConstraintAttribute>
     {
+        public const string ShortName = "Constraint";
         public Type ConcreteConstraintType => _concreteType.ConcreteType;
         protected string ConcreteTypeName => _concreteType.ConcreteTypeName;
 

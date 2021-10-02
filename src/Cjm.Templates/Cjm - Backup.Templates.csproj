@@ -45,6 +45,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="UncompilableTemplates\" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Update="UncompileableTemplates.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
@@ -57,10 +61,6 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>UncompileableTemplates.Designer.cs</LastGenOutput>
     </EmbeddedResource>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="UncompilableTemplates\" />
   </ItemGroup>
 
 </Project>

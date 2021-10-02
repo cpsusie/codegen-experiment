@@ -29,7 +29,11 @@ namespace Cjm.Templates.ConstraintSpecifiers
 
         public static readonly ValueTypeConstraintSpecifier UnmanagedReadOnlyStackOnlyValueTypeConstraint =
             new(EnumConstraintType.NoEnumConstraint, ValueTypeConstraintCode.Unmanaged | ValueTypeConstraintCode.Readonly |
-                                                     ValueTypeConstraintCode.StackOnly); 
+                                                     ValueTypeConstraintCode.StackOnly);
+        public static readonly ValueTypeConstraintSpecifier UnmanagedReadOnlyEmptyConstraint =
+            new(EnumConstraintType.NoEnumConstraint,
+                ValueTypeConstraintCode.Unmanaged | ValueTypeConstraintCode.NoInstanceFields |
+                ValueTypeConstraintCode.Readonly);
         #endregion
 
         #region Constraints for Enums
@@ -131,10 +135,11 @@ namespace Cjm.Templates.ConstraintSpecifiers
     [Flags]
     public enum ValueTypeConstraintCode : byte //ushort
     {
-        JustValueType = 0x00,
-        Unmanaged = 0x01,
-        Readonly = 0x02,
-        StackOnly = 0x04,
+        JustValueType           = 0x00,
+        Unmanaged               = 0x01,
+        Readonly                = 0x02,
+        StackOnly               = 0x04,
+        NoInstanceFields        = 0x08,
     }
 
     public enum EnumConstraintType : byte
