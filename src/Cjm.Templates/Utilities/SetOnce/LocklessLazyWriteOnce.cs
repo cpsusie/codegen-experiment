@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Threading;
 using HpTimeStamps;
+using JetBrains.Annotations;
 
 namespace Cjm.Templates.Utilities.SetOnce
 {
@@ -165,6 +166,12 @@ namespace Cjm.Templates.Utilities.SetOnce
             }
         }
 
+        public bool TrySetNonDefault(T value)
+        {
+            if (value == null) throw new ArgumentNullException(nameof(value));
+            return Interlocked.CompareExchange(ref _value, value, null) == null;
+        }
+
         private T GetValue()
         {
             try
@@ -190,6 +197,16 @@ namespace Cjm.Templates.Utilities.SetOnce
         internal LocklessLazyWriteOnce(Func<T> generator) =>
             _generator = generator ?? throw new ArgumentNullException(nameof(generator));
 
+        public void SetNonDefaultValueOrThrow(T nonDefault)
+        {
+            if (nonDefault == null) throw new ArgumentNullException(nameof(nonDefault));
+            if (!TrySetNonDefault(nonDefault))
+            {
+                T? value = Volatile.Read(ref _value);
+                Debug.Assert(value != null);
+                throw new LocklessFlagAlreadySetException<T>(nonDefault, value!);
+            }
+        }
 
         /// <inheritdoc />
         public override string ToString() =>
@@ -199,5 +216,30 @@ namespace Cjm.Templates.Utilities.SetOnce
 
         private readonly Func<T> _generator;
         private T? _value;
+    }
+
+    public class LocklessFlagAlreadySetException<[NotNull] T> : InvalidOperationException
+    {
+        public T DesiredValue { get; }
+
+        public T AlreadySetValue { get; }
+
+        public LocklessFlagAlreadySetException(T desiredNonDefaultValue, T alreadySetValue) 
+            : this(desiredNonDefaultValue, alreadySetValue, null) {}
+
+        public LocklessFlagAlreadySetException(T desiredNonDefaultValue, T alreadySetValue, Exception? inner) : base(
+            CreateMessage(desiredNonDefaultValue ?? throw new ArgumentNullException(nameof(desiredNonDefaultValue)),
+                alreadySetValue ?? throw new ArgumentNullException(nameof(alreadySetValue)), inner), inner)
+        {
+            DesiredValue = desiredNonDefaultValue;
+            AlreadySetValue = alreadySetValue;
+        }
+
+        private static string CreateMessage(T desiredNonDefaultValue, T alreadySetValue, Exception? inner)
+        {
+            return
+                $"Unable to set lockless flag's value to non default ({desiredNonDefaultValue}) -- value is already set to be ({alreadySetValue})." +
+                (inner != null ? " Consult inner exception for details." : string.Empty);
+        }
     }
 }

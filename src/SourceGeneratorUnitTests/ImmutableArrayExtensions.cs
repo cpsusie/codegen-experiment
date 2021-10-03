@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 
+[assembly: InternalsVisibleTo("Cjm.Templates.Test")]
 namespace SourceGeneratorUnitTests
 {
     internal delegate void RefActionRt<T>(ref T? item) where T : class;

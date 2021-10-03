@@ -1,0 +1,62 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>preview</LangVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <WarningsAsErrors>$(WarningsAsErrors);NU1605;CS8618;CS8602;CS8601;CS8603;CS8604;CS8605</WarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <WarningsAsErrors>$(WarningsAsErrors);NU1605;CS8618;CS8602;CS8601;CS8603;CS8604;CS8605</WarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="TemplateInterfaceTestCases\IEnumComparer.cs" />
+    <Compile Remove="TemplateInterfaceTestCases\IEnumEqualityComparer.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="HighPrecisionTimeStamps" Version="1.0.0.6" />
+    <PackageReference Include="Microsoft.CodeAnalysis" Version="3.11.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.11.0" />
+    <PackageReference Include="xunit" Version="2.4.1" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.3">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="3.1.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Cjm.Templates\Cjm.Templates.csproj" />
+    <ProjectReference Include="..\LoggerLibrary\LoggerLibrary.csproj" />
+    <ProjectReference Include="..\SourceGeneratorUnitTests\SourceGeneratorUnitTests.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="TestCasesTemplateInterface.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>TestCasesTemplateInterface.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="TestCasesTemplateInterface.resx">
+      <Generator>PublicResXFileCodeGenerator</Generator>
+      <LastGenOutput>TestCasesTemplateInterface.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="TemplateInterfaceTestCases\" />
+  </ItemGroup>
+
+</Project>

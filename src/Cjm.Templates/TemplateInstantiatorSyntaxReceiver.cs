@@ -73,7 +73,7 @@ namespace Cjm.Templates
                 if (matchingTemplateInterface.Any())
                 {
                     declaringType = id;
-                    matchingAttribute = matchingImplementation.First();
+                    matchingAttribute = matchingTemplateInterface.First();
                 }
                 else if (matchingImplementation.Any())
                 {
@@ -176,12 +176,7 @@ namespace Cjm.Templates
                     }, declaringType, ma)
 
                 };
-
             }
-
-            Debug.Assert((declaringType == null || attribSyntax == null) ==
-                         (result != ExtractionResult.ImplementationOk && result != ExtractionResult.InterfaceOk));
-            return (result, declaringType, attribSyntax);
         }
 
         private void ThrowIfNotClear([CallerMemberName] string callingMethodName = "")

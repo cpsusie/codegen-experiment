@@ -28,7 +28,7 @@ namespace Cjm.Templates
         public void Initialize(GeneratorInitializationContext context)
         {
             using var eel =
-                LoggerSource.Logger.CreateEel(nameof(TemplateInstantiator), nameof(Initialize), context.ToString());
+                TraceLog.CreateEel(nameof(TemplateInstantiator), nameof(Initialize), context.ToString());
             context.RegisterForSyntaxNotifications(() => new TemplateInstantiatorSyntaxReceiver());
         }
 

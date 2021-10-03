@@ -1,18 +1,34 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using Cjm.Templates.Utilities.SetOnce;
 using LoggerLibrary;
+[assembly: InternalsVisibleTo("Cjm.Templates.Test")]
 
 namespace Cjm.Templates.Utilities
 {
     internal static class LoggerSource
     {
-        public static readonly ICodeGenLogger Logger;
+        public static ICodeGenLogger Logger => TheLogger.Value;
 
         static LoggerSource()
         {
-            CodeGenLogger.SupplyAlternateLoggingPathOrThrow(@"L:\Desktop\cjm_template_log.txt");
-            Logger =CodeGenLogger.Logger;
+            TheLogger = new LocklessLazyWriteOnce<ICodeGenLogger>(CreateDefaultLogger);
         }
+
+        public static void InjectAlternateLoggerOrThrow(ICodeGenLogger alternate)
+        {
+            TheLogger.SetNonDefaultValueOrThrow(alternate);
+        }
+        
+
+        static ICodeGenLogger CreateDefaultLogger()
+        {
+            CodeGenLogger.SupplyAlternateLoggingPathOrThrow(@"L:\Desktop\cjm_template_log.txt");
+            return CodeGenLogger.Logger;
+        }
+
+        private static readonly LocklessLazyWriteOnce<ICodeGenLogger> TheLogger;
     }
 
     internal static class DebugLog

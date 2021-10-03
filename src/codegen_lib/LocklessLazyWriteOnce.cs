@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using Cjm.CodeGen.Exceptions;
 using HpTimeStamps;
-
+[assembly: InternalsVisibleTo("Cjm.Templates.Test")]
 namespace Cjm.CodeGen
 {
     public sealed class LocklessWriteOnce<T> where T : class

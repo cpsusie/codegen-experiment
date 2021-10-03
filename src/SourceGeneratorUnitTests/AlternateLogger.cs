@@ -2,18 +2,25 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using LoggerLibrary;
 using Xunit.Abstractions;
 using MonotonicContext = HpTimeStamps.MonotonicStampContext;
 using Duration = HpTimeStamps.Duration;
+[assembly: InternalsVisibleTo("Cjm.Templates.Test")]
 namespace SourceGeneratorUnitTests
 {
     using MonotonicStamp = HpTimeStamps.MonotonicTimeStamp<MonotonicContext>;
     using MonotonicSource = HpTimeStamps.MonotonicTimeStampUtil<MonotonicContext>;
-    static class AlternateLoggerSource
+    public static class AlternateLoggerSource
     {
+        public static ICodeGenLogger CreateAlternateLogger(ITestOutputHelper helper)
+        {
+            return AlternateLogger.CreateLogger(helper ?? throw new ArgumentNullException(nameof(helper)));
+        }
+
         public static void InjectAlternateLogger(ITestOutputHelper helper)
         {
             ICodeGenLogger? logger = null;

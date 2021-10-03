@@ -1,6 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using Cjm.CodeGen;
 
-namespace LoggerLibrary
+namespace Cjm.Templates.Test
 {
     public sealed class TrimmedStringComparer : StringComparer
     {
@@ -45,14 +50,15 @@ namespace LoggerLibrary
 
         }
 #else
+#pragma warning disable RS1024
         /// <inheritdoc />
         public override int GetHashCode(string? obj)
         {
             var span = (obj ?? string.Empty).AsSpan().Trim();
             return string.GetHashCode(span, _baseComparison);
         }
+#pragma warning restore RS1024
 #endif
-
 
         private StringComparer BaseComparer => _baseComparison switch
         {
@@ -70,26 +76,26 @@ namespace LoggerLibrary
         private readonly StringComparison _baseComparison;
 
         private static readonly LocklessLazyWriteOnce<TrimmedStringComparer> TheOrdinalComparer =
-            new LocklessLazyWriteOnce<TrimmedStringComparer>(() => InitComparer(StringComparison.Ordinal));
-        private static readonly LocklessLazyWriteOnce<TrimmedStringComparer> TheOrdinalIgnoreCaseComparer = new LocklessLazyWriteOnce<TrimmedStringComparer>(
+            new(() => InitComparer(StringComparison.Ordinal));
+        private static readonly LocklessLazyWriteOnce<TrimmedStringComparer> TheOrdinalIgnoreCaseComparer = new(
             () => InitComparer(StringComparison.OrdinalIgnoreCase));
         private static readonly LocklessLazyWriteOnce<TrimmedStringComparer> TheCurrentCultureComparer =
-            new LocklessLazyWriteOnce<TrimmedStringComparer>(() =>
+            new(() =>
                 new TrimmedStringComparer(StringComparison.CurrentCulture));
         private static readonly LocklessLazyWriteOnce<TrimmedStringComparer> TheCurrentCultureIgnoreCaseComparer =
-            new LocklessLazyWriteOnce<TrimmedStringComparer>(() =>
+            new(() =>
                 new TrimmedStringComparer(StringComparison.CurrentCultureIgnoreCase));
 
         private static readonly LocklessLazyWriteOnce<TrimmedStringComparer> TheInvariantCultureComparer =
-            new LocklessLazyWriteOnce<TrimmedStringComparer>(() =>
+            new(() =>
                 new TrimmedStringComparer(StringComparison.InvariantCulture));
         private static readonly LocklessLazyWriteOnce<TrimmedStringComparer> TheInvariantCultureIgnoreCaseComparer =
-            new LocklessLazyWriteOnce<TrimmedStringComparer>(() =>
+            new(() =>
                 new TrimmedStringComparer(StringComparison.InvariantCultureIgnoreCase));
-        
+
 
 
         private static TrimmedStringComparer InitComparer(StringComparison baseComp) =>
-            new TrimmedStringComparer(baseComp);
+            new(baseComp);
     }
 }
