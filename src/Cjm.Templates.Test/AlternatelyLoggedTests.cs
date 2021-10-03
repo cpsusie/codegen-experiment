@@ -1,4 +1,6 @@
 ﻿using System;
+using Cjm.Templates.Utilities;
+using LoggerLibrary;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -10,8 +12,33 @@ namespace Cjm.Templates.Test
         protected AlternatelyLoggedTests(ITestOutputHelper outputHelper)
         {
             Helper = outputHelper ?? throw new ArgumentNullException(nameof(outputHelper));
-            var logger = SourceGeneratorUnitTests.AlternateLoggerSource.CreateAlternateLogger(outputHelper);
-            Utilities.LoggerSource.InjectAlternateLoggerOrThrow(logger);
+            
+            if (LoggerSource.IsLoggerAlreadySet && LoggerSource.Logger is IWrap<ITestOutputHelper> wrapped)
+            {
+                wrapped.Update(outputHelper);
+                return;
+            }
+
+            ICodeGenLogger logger =
+                SourceGeneratorUnitTests.AlternateLoggerSource.CreateAlternateLogger(outputHelper);
+            try
+            {
+
+                LoggerSource.InjectAlternateLoggerOrThrow(logger);
+            }
+            catch (Exception)
+            {
+                logger.Dispose();
+                if (LoggerSource.Logger is IWrap<ITestOutputHelper> wrapper)
+                {
+                    wrapper.Update(outputHelper);
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
         }
     }
 

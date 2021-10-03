@@ -18,7 +18,7 @@ namespace LoggerLibrary
         public const string FilePath = @"L:\Desktop\CodeGenLog.txt";
         public static ICodeGenLogger Logger => TheLogger.Value;
         public static bool IsLoggerAlreadySet => TheLogger.IsSet;
-
+        
         public static void SupplyAlternateLoggerOrThrow(ICodeGenLogger logger)
         {
             if (logger == null) throw new ArgumentNullException(nameof(logger));

@@ -17,4 +17,11 @@ namespace LoggerLibrary
         void LogError(string error);
         void LogException(Exception error);
     }
+
+    public interface IWrap<T> where T : notnull
+    {
+        T CurrentSetting { get; }
+
+        T Update(T value);
+    }
 }

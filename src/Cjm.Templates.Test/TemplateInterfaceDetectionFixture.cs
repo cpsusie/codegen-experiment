@@ -2,11 +2,8 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using HpTimeStamps;
 using JetBrains.Annotations;
-using LoggerLibrary;
 
 namespace Cjm.Templates.Test
 {
@@ -30,9 +27,9 @@ namespace Cjm.Templates.Test
         {
             yield return new TemplateInterfaceExpectedResults(TemplateInterfaceTestCaseIdentifier.NoHitCase, 0,
                 TemplateInterfaceTestCaseIdentifier.NoHitCase.ToString(), TestCasesTemplateInterface.IEnumEqualityComparer, ImmutableHashSet<string>.Empty);
-            yield return new TemplateInterfaceExpectedResults(TemplateInterfaceTestCaseIdentifier.EnumComparer, 2,
+            yield return new TemplateInterfaceExpectedResults(TemplateInterfaceTestCaseIdentifier.EnumComparer, 1,
                 TemplateInterfaceTestCaseIdentifier.EnumComparer.ToString(), TestCasesTemplateInterface.IEnumComparer,
-                new[] { "IEnumComparer", "IBetterList" }.CreateHashSet(TheComparer));
+                new[] { "IEnumComparer" }.CreateHashSet(TheComparer));
         }
 
         private static readonly ImmutableSortedDictionary<TemplateInterfaceTestCaseIdentifier, TemplateInterfaceExpectedResults> TheLookup;

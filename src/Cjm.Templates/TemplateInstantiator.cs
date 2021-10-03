@@ -11,18 +11,15 @@ namespace Cjm.Templates
     using MonotonicStamp = HpTimeStamps.MonotonicTimeStamp<MonotonicContext>;
     using StampSource = HpTimeStamps.MonotonicTimeStampUtil<MonotonicContext>;
 
-    public readonly record struct FoundTemplateInterfaceRecord(TypeDeclarationSyntax TemplateInterface,
+    public readonly record struct FoundTemplateInterfaceRecord(string TemplateName, TypeDeclarationSyntax TemplateInterface,
         AttributeSyntax TemplateAttribute);
 
     [Generator]
     public sealed class TemplateInstantiator : ISourceGenerator, IDisposable
     {
-        public event EventHandler<TemplateInterfaceRecordsIdentifiedEventArgs>? TemplateInterfaceRecordsFound; 
+        public event EventHandler<TemplateInterfaceRecordsIdentifiedEventArgs>? TemplateInterfaceRecordsFound;
 
-        public TemplateInstantiator()
-        {
-            _pump = EventPumpFactorySource.FactoryInstance(GetNextThreadName());
-        }
+        public TemplateInstantiator() => _pump = EventPumpFactorySource.FactoryInstance(GetNextThreadName());
 
         /// <inheritdoc />
         public void Initialize(GeneratorInitializationContext context)

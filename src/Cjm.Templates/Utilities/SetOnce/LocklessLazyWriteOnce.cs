@@ -197,14 +197,17 @@ namespace Cjm.Templates.Utilities.SetOnce
         internal LocklessLazyWriteOnce(Func<T> generator) =>
             _generator = generator ?? throw new ArgumentNullException(nameof(generator));
 
-        public void SetNonDefaultValueOrThrow(T nonDefault)
+        
+
+        public void SetNonDefaultValueOrThrow(T nonDefault, bool forgiveIfAlready)
         {
             if (nonDefault == null) throw new ArgumentNullException(nameof(nonDefault));
             if (!TrySetNonDefault(nonDefault))
             {
                 T? value = Volatile.Read(ref _value);
                 Debug.Assert(value != null);
-                throw new LocklessFlagAlreadySetException<T>(nonDefault, value!);
+                if (!forgiveIfAlready || !ReferenceEquals(value, nonDefault))
+                    throw new LocklessFlagAlreadySetException<T>(nonDefault, value!);
             }
         }
 
@@ -218,11 +221,14 @@ namespace Cjm.Templates.Utilities.SetOnce
         private T? _value;
     }
 
-    public class LocklessFlagAlreadySetException<[NotNull] T> : InvalidOperationException
+    public class LocklessFlagAlreadySetException<[NotNull] T> : LocklessFlagAlreadySetException
     {
         public T DesiredValue { get; }
 
         public T AlreadySetValue { get; }
+
+        /// <inheritdoc />
+        protected sealed override Type LocklessFlagItemType => typeof(T);
 
         public LocklessFlagAlreadySetException(T desiredNonDefaultValue, T alreadySetValue) 
             : this(desiredNonDefaultValue, alreadySetValue, null) {}
@@ -241,5 +247,15 @@ namespace Cjm.Templates.Utilities.SetOnce
                 $"Unable to set lockless flag's value to non default ({desiredNonDefaultValue}) -- value is already set to be ({alreadySetValue})." +
                 (inner != null ? " Consult inner exception for details." : string.Empty);
         }
+
+
+    }
+
+    public abstract class LocklessFlagAlreadySetException : InvalidOperationException
+    {
+        protected abstract Type LocklessFlagItemType { get; }
+        
+        protected LocklessFlagAlreadySetException(string message, Exception? inner) 
+            : base(message ?? throw new ArgumentNullException(nameof(message)), inner) {}
     }
 }

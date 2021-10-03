@@ -5,6 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+
 using LoggerLibrary;
 using Xunit.Abstractions;
 using MonotonicContext = HpTimeStamps.MonotonicStampContext;
@@ -16,10 +17,8 @@ namespace SourceGeneratorUnitTests
     using MonotonicSource = HpTimeStamps.MonotonicTimeStampUtil<MonotonicContext>;
     public static class AlternateLoggerSource
     {
-        public static ICodeGenLogger CreateAlternateLogger(ITestOutputHelper helper)
-        {
-            return AlternateLogger.CreateLogger(helper ?? throw new ArgumentNullException(nameof(helper)));
-        }
+        public static ICodeGenLogger CreateAlternateLogger(ITestOutputHelper helper) =>
+            AlternateLogger.CreateLogger(helper ?? throw new ArgumentNullException(nameof(helper)));
 
         public static void InjectAlternateLogger(ITestOutputHelper helper)
         {
@@ -29,7 +28,7 @@ namespace SourceGeneratorUnitTests
                 if (_setOnce.TrySet())
                 {
                     logger = AlternateLogger.CreateLogger(helper);
-                    CodeGenLogger.SupplyAlternateLoggerOrThrow(logger!);
+                    CodeGenLogger.SupplyAlternateLoggerOrThrow(logger);
                 }
             }
             catch (Exception ex)
@@ -40,9 +39,9 @@ namespace SourceGeneratorUnitTests
             }
         }
 
-        sealed class AlternateLogger : ICodeGenLogger
+        sealed class AlternateLogger : ICodeGenLogger, IWrap<ITestOutputHelper>
         {
-            internal static ICodeGenLogger CreateLogger([JetBrains.Annotations.NotNull] ITestOutputHelper helper)
+            internal static ICodeGenLogger CreateLogger(ITestOutputHelper helper)
             {
                 if (helper == null) throw new ArgumentNullException(nameof(helper));
                 AlternateLogger? ret = null;
@@ -74,6 +73,9 @@ namespace SourceGeneratorUnitTests
             public event EventHandler<MonotonicStampedEventArgs>? ThreadStopped;
 
             public bool IsDisposed => _disposed.IsSet;
+
+            /// <inheritdoc />
+            public ITestOutputHelper CurrentSetting => _helper;
 
             /// <inheritdoc />
             [SuppressMessage("ReSharper", "ConstantNullCoalescingCondition")]
@@ -121,7 +123,17 @@ namespace SourceGeneratorUnitTests
             }
 
             public void Dispose() => Dispose(true);
-
+            /// <inheritdoc />
+            public ITestOutputHelper Update(ITestOutputHelper value)
+            {
+                if (value == null) throw new ArgumentNullException(nameof(value));
+                if (IsDisposed)
+                {
+                    throw new ObjectDisposedException(nameof(AlternateLogger),
+                        $"Illegal call to {nameof(Update)} method: object is disposed.");
+                }
+                return Interlocked.Exchange(ref _helper, value);
+            }
             private void Dispose(bool disposing)
             {
                 if (_disposed.TrySet() && disposing)
@@ -234,7 +246,7 @@ namespace SourceGeneratorUnitTests
                 {
                     try
                     {
-                        _helper.WriteLine(text!);
+                        WriteLine(text);
                         loggedIt = true;
                     }
                     catch (OperationCanceledException)
@@ -276,15 +288,21 @@ namespace SourceGeneratorUnitTests
 
             private AlternateLogger(ITestOutputHelper helper)
             {
-                _helper = helper ?? throw new ArgumentNullException(nameof(helper));
                 _cts = new CancellationTokenSource();
                 _logCollection = new BlockingCollection<LogMessage>(new ConcurrentQueue<LogMessage>());
                 _t = new Thread(ThreadLoop)
                 { Name = "LogThread", IsBackground = true, Priority = ThreadPriority.BelowNormal };
                 _eventPump = EventPumpFactorySource.FactoryInstance("LoggerEventPump");
+                _helper = helper ?? throw new ArgumentNullException(nameof(helper));
             }
 
-            private readonly ITestOutputHelper _helper;
+            private void WriteLine(string writeMe)
+            {
+                ITestOutputHelper toh = _helper;
+                toh.WriteLine(writeMe);
+            }
+
+            private volatile ITestOutputHelper _helper;
             private readonly IEventPump _eventPump;
             private readonly int _maxLogAttempts = 3;
             private LocklessSetOnlyRefStr _disposed;
@@ -294,8 +312,6 @@ namespace SourceGeneratorUnitTests
             private LocklessSetOnlyRefStr _threadEnd;
             private LocklessSetOnlyRefStr _faulted;
             private readonly BlockingCollection<LogMessage> _logCollection;
-
-
         }
 
         private static LocklessSetOnlyFlag _setOnce;

@@ -43,7 +43,7 @@ namespace Cjm.Templates.Test
                 {
                     using var generator = new TemplateInstantiator();
                     generator.TemplateInterfaceRecordsFound +=
-                        (sender, e) =>
+                        (_, e) =>
                         {
                             lock (expectedSyncObj)
                             {
@@ -100,9 +100,11 @@ namespace Cjm.Templates.Test
                     finalSet = bldr.ToImmutable();
                 }
             }
+
             Assert.NotNull(newComp);
             Assert.Equal(x.ExpectedNumberHits, finalSet.Count);
             Assert.True(diagnostics.Count(dx => dx.Severity >= DiagnosticSeverity.Warning) == 0);
+            Assert.True(x.FoundNames.SetEquals(finalSet.Select(r => r.TemplateName)));
         }
 
         

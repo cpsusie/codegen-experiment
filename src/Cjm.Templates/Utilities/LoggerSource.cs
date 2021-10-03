@@ -9,6 +9,7 @@ namespace Cjm.Templates.Utilities
 {
     internal static class LoggerSource
     {
+        public static bool IsLoggerAlreadySet => TheLogger.IsSet;
         public static ICodeGenLogger Logger => TheLogger.Value;
 
         static LoggerSource()
@@ -18,7 +19,19 @@ namespace Cjm.Templates.Utilities
 
         public static void InjectAlternateLoggerOrThrow(ICodeGenLogger alternate)
         {
-            TheLogger.SetNonDefaultValueOrThrow(alternate);
+            try
+            {
+                TheLogger.SetNonDefaultValueOrThrow(alternate ?? throw new ArgumentNullException(nameof(alternate)),
+                    true);
+            }
+            catch (LocklessFlagAlreadySetException)
+            {
+                if (!ReferenceEquals(alternate, Logger))
+                {
+                    throw;
+                }
+            }
+            
         }
         
 

@@ -30,9 +30,11 @@ namespace Cjm.Templates
             (ExtractionResult extractionResult, TypeDeclarationSyntax? declaredType, AttributeSyntax? matchingAttrib) =
                 Extract(syntaxNode);
             Debug.Assert(!extractionResult.IsSuccessResult() || (declaredType != null && matchingAttrib != null));
-            if (matchingAttrib != null && extractionResult.IsInterfaceSpecific() )
+            if (matchingAttrib != null && extractionResult.IsInterfaceSpecific() && declaredType != null )
             {
-                AddToIfClear(Volatile.Read(ref _templateInterfaceRecordsBldr), new FoundTemplateInterfaceRecord(declaredType ?? throw new ArgumentNullException(nameof(declaredType)), matchingAttrib));
+                string name = declaredType.Identifier.ToString();
+                AddToIfClear(Volatile.Read(ref _templateInterfaceRecordsBldr), 
+                    new FoundTemplateInterfaceRecord(name, declaredType ?? throw new ArgumentNullException(nameof(declaredType)), matchingAttrib));
             }
         }
 
