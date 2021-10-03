@@ -8,8 +8,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="HighPrecisionTimeStamps" Version="1.0.0.4" />
-    <PackageReference Include="JetBrains.Annotations" Version="2021.2.0" />
+    <PackageReference Include="HighPrecisionTimeStamps" Version="1.0.0.6" />
+    <PackageReference Include="JetBrains.Annotations" Version="2021.3.0-eap4" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.11.0" />
     <PackageReference Include="NETStandard.Library" Version="2.0.3" />
     <PackageReference Include="System.Collections.Immutable" Version="5.0.0" />

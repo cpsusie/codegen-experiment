@@ -10,8 +10,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="HighPrecisionTimeStamps" Version="1.0.0.4" />
-    <PackageReference Include="JetBrains.Annotations" Version="2021.2.0" />
+    <PackageReference Include="HighPrecisionTimeStamps" Version="1.0.0.6" />
+    <PackageReference Include="JetBrains.Annotations" Version="2021.3.0-eap4" />
   </ItemGroup>
 
 </Project>
