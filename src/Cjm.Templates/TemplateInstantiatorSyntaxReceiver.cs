@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -8,6 +9,7 @@ using Cjm.Templates.Attributes;
 using Cjm.Templates.Utilities;
 using Cjm.Templates.Utilities.SetOnce;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Cjm.Templates
@@ -17,11 +19,20 @@ namespace Cjm.Templates
         public ImmutableArray<FoundTemplateInterfaceRecord> FoundInterfaceRecords => _freezeFlag.IsFrozen
             ? _templateInterfaceRecords
             : ImmutableArray<FoundTemplateInterfaceRecord>.Empty;
-        
+
+        public ImmutableArray<FoundTemplateImplementationRecord> FoundImplementationRecords => _freezeFlag.IsFrozen
+            ? _templateImplementationRecords
+            : ImmutableArray<FoundTemplateImplementationRecord>.Empty;
+
+        public ImmutableArray<FoundTemplateInstantiationRecord> FoundInstantiationRecords => _freezeFlag.IsFrozen
+            ? _templateInstantRecords
+            : ImmutableArray<FoundTemplateInstantiationRecord>.Empty;
 
         public TemplateInstantiatorSyntaxReceiver()
         {
             _templateInterfaceRecordsBldr = ImmutableArray.CreateBuilder<FoundTemplateInterfaceRecord>();
+            _tempImplRecordsBldr = ImmutableArray.CreateBuilder<FoundTemplateImplementationRecord>();
+            _tempInstantRecordsBldr = ImmutableArray.CreateBuilder<FoundTemplateInstantiationRecord>();
         }
 
         /// <inheritdoc />
@@ -30,11 +41,72 @@ namespace Cjm.Templates
             (ExtractionResult extractionResult, TypeDeclarationSyntax? declaredType, AttributeSyntax? matchingAttrib) =
                 Extract(syntaxNode);
             Debug.Assert(!extractionResult.IsSuccessResult() || (declaredType != null && matchingAttrib != null));
-            if (matchingAttrib != null && extractionResult.IsInterfaceSpecific() && declaredType != null )
+            if (matchingAttrib != null && declaredType != null )
             {
                 string name = declaredType.Identifier.ToString();
-                AddToIfClear(Volatile.Read(ref _templateInterfaceRecordsBldr), 
-                    new FoundTemplateInterfaceRecord(name, declaredType ?? throw new ArgumentNullException(nameof(declaredType)), matchingAttrib));
+                if (extractionResult.IsInterfaceSpecific())
+                {
+                    
+                    AddToIfClear(Volatile.Read(ref _templateInterfaceRecordsBldr),
+                        new FoundTemplateInterfaceRecord(name,
+                            declaredType ?? throw new ArgumentNullException(nameof(declaredType)), matchingAttrib));
+                }
+                else if (extractionResult.IsImplementationSpecific())
+                {
+                    //todo fixit -- foobar
+                    (bool ok, string templateIntfName) = ExtractTemplateNameFromAttributeSyntax(matchingAttrib);
+                    AddToIfClear(Volatile.Read(ref _tempImplRecordsBldr),
+                        new FoundTemplateImplementationRecord(name, declaredType, matchingAttrib, ok ? templateIntfName : $"ERROR: {templateIntfName}",
+                            declaredType.SyntaxTree));
+                }
+                else if (extractionResult.IsInstantiationSpecific())
+                {
+                    (bool ok, TypeOfExpressionSyntax? toes, bool? targetIsTemplateInterface) =
+                        ExtractInstantiationInfo(matchingAttrib);
+                    Debug.Assert(!ok || (toes != null && targetIsTemplateInterface != null), "If ok, others not null.");
+                    if (ok)
+                    {
+                        AddToIfClear(Volatile.Read(ref _tempInstantRecordsBldr), new FoundTemplateInstantiationRecord(name, declaredType, toes!, targetIsTemplateInterface!.Value));
+                    }
+                }
+
+                static (bool Ok, string Name) ExtractTemplateNameFromAttributeSyntax(AttributeSyntax syntax)
+                {
+                    var x = syntax.ArgumentList?.Arguments.FirstOrDefault();
+                    return x switch
+                    {
+                        null => (false, "ERROR CANNOT IDENTIFY TEMPLATE"),
+                        { } y
+                            when y.DescendantNodes().OfType<TypeOfExpressionSyntax>().FirstOrDefault() is { } toes => (true, toes.ToString()),
+                        _ => (false, "ERROR ... attribute ctor seems to lack typeof expression.")
+                    };
+                }
+            }
+        }
+
+        private (bool Ok, TypeOfExpressionSyntax? TargetType, bool? IsTargetTypeTemplateInterface) ExtractInstantiationInfo(AttributeSyntax matchingAttrib)
+        {
+            int attribArgCount = matchingAttrib.ArgumentList?.Arguments.Count ?? 0;
+            bool matches = matchingAttrib.Name.ToString() == CjmTemplateInstantiationAttribute.ShortName;
+
+            return (matches, attribArgCount, matchingAttrib.ArgumentList) switch
+            {
+                (true, 2, {} argList) => ExtractFromArgListOfSize2(argList.Arguments),
+                _ => (false, null, null),
+            };
+
+            static (bool Ok, TypeOfExpressionSyntax? Toes, bool? IsTargetTypeTemplateInterface)
+                ExtractFromArgListOfSize2(SeparatedSyntaxList<AttributeArgumentSyntax> items)
+            {
+                Debug.Assert(items.Count == 2);
+                TypeOfExpressionSyntax? toes = items[0].Expression as TypeOfExpressionSyntax;
+                bool? isTargetTemplateInterface = items[1].Expression switch
+                {
+                    LiteralExpressionSyntax expr when expr.Kind() is SyntaxKind.TrueLiteralExpression or SyntaxKind.TrueKeyword => true,
+                    LiteralExpressionSyntax expr when expr.Kind() is SyntaxKind.FalseLiteralExpression or SyntaxKind.FalseKeyword => false,
+                    _ => null
+                };
+                return (toes != null && isTargetTemplateInterface != null, toes, isTargetTemplateInterface);
             }
         }
 
@@ -127,9 +199,9 @@ namespace Cjm.Templates
                 {
                     if (matchingAttribute == null)
                     {
-                        errors = errors || declaringType is not ClassDeclarationSyntax &&
-                            declaringType is not StructDeclarationSyntax || matchingInstantiation.Length > 1;
-                        matchingAttribute = matchingImplementation.First();
+                        errors = errors || (declaringType is not ClassDeclarationSyntax &&
+                            declaringType is not StructDeclarationSyntax) || matchingInstantiation.Length > 1;
+                        matchingAttribute = matchingInstantiation.First();
                         result = !errors ? ExtractionResult.InstantiationOk : ExtractionResult.InstantiationWithErrors;
                     }
                     else
@@ -209,14 +281,64 @@ namespace Cjm.Templates
             if (_freezeFlag.IsFrozen) return;
             if (_freezeFlag.TryBeginFreeze())
             {
-                var bldr = Interlocked.Exchange(ref _templateInterfaceRecordsBldr, null);
-                if (bldr == null)
+                ImmutableArray<FoundTemplateInterfaceRecord>.Builder? templIntrf =
+                    Volatile.Read(ref _templateInterfaceRecordsBldr);
+                ImmutableArray<FoundTemplateImplementationRecord>.Builder? implTempl =
+                    Volatile.Read(ref _tempImplRecordsBldr);
+                ImmutableArray<FoundTemplateInstantiationRecord>.Builder? instantTempl =
+                    Volatile.Read(ref _tempInstantRecordsBldr);
                 {
-                    _freezeFlag.CancelFreezeOrThrow();
-                    throw new LocklessMultiStepException("During a freeze operation, builder unexpectedly found null.");
+                    var bldr = Interlocked.Exchange(ref _templateInterfaceRecordsBldr, null);
+                    if (bldr == null)
+                    {
+                        if (templIntrf != null)
+                        {
+                            Volatile.Write(ref _templateInterfaceRecordsBldr, templIntrf);
+                        }
+                        _freezeFlag.CancelFreezeOrThrow();
+                        throw new LocklessMultiStepException(
+                            $"During a freeze operation, builder {nameof(_templateInterfaceRecordsBldr)} found null.");
+                    }
+
+                    _templateInterfaceRecords = bldr.ToImmutable();
+                }
+                {
+                    var bldr = Interlocked.Exchange(ref _tempImplRecordsBldr, null);
+                    if (bldr == null)
+                    {
+                        if (implTempl != null)
+                        {
+                            Volatile.Write(ref _tempImplRecordsBldr, implTempl);
+                        }
+                        if (templIntrf != null)
+                        {
+                            Volatile.Write(ref _templateInterfaceRecordsBldr, templIntrf);
+                        }
+                        _freezeFlag.CancelFreezeOrThrow();
+                        throw new LocklessMultiStepException(
+                            $"During a freeze operation, builder {nameof(_tempImplRecordsBldr)} unexpectedly found null.");
+                    }
+                    _templateImplementationRecords = bldr.ToImmutable();
+                }
+                {
+                    var bldr = Interlocked.Exchange(ref _tempInstantRecordsBldr, null);
+                    if (bldr == null)
+                    {
+                        if (implTempl != null)
+                        {
+                            Volatile.Write(ref _tempImplRecordsBldr, implTempl);
+                        }
+                        if (templIntrf != null)
+                        {
+                            Volatile.Write(ref _templateInterfaceRecordsBldr, templIntrf);
+                        }
+                        _freezeFlag.CancelFreezeOrThrow();
+                        throw new LocklessMultiStepException(
+                            $"During a freeze operation, builder {nameof(_tempInstantRecordsBldr)} unexpectedly found null.");
+                    }
+                    _templateInstantRecords = bldr.ToImmutable();
                 }
 
-                _templateInterfaceRecords = bldr.Capacity == bldr.Count ? bldr.MoveToImmutable() : bldr.ToImmutable();
                 _freezeFlag.FinishFreezeOrThrow();
             }
             else if (!_freezeFlag.IsFrozen)
@@ -227,7 +349,11 @@ namespace Cjm.Templates
 
         private ImmutableArray<FoundTemplateInterfaceRecord> _templateInterfaceRecords;
         private ImmutableArray<FoundTemplateInterfaceRecord>.Builder? _templateInterfaceRecordsBldr;
-        
+        private ImmutableArray<FoundTemplateImplementationRecord> _templateImplementationRecords;
+        private ImmutableArray<FoundTemplateImplementationRecord>.Builder? _tempImplRecordsBldr;
+        private ImmutableArray<FoundTemplateInstantiationRecord> _templateInstantRecords;
+        private ImmutableArray<FoundTemplateInstantiationRecord>.Builder? _tempInstantRecordsBldr;
+
         private readonly LocklessFreezeFlag _freezeFlag = new();
         
     }

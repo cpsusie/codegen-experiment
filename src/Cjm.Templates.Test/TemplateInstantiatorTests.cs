@@ -21,7 +21,7 @@ namespace Cjm.Templates.Test
         [Fact]
         public void TestFixture()
         {
-            Assert.Equal(2, Fixture.Lookup.Count);
+            Assert.Equal(4, Fixture.Lookup.Count);
         }
 
         [Fact]
@@ -47,7 +47,7 @@ namespace Cjm.Templates.Test
                         {
                             lock (expectedSyncObj)
                             {
-                                bldr.UnionWith(e.IdentifiedTemplateInterfaceRecords);
+                                bldr.UnionWith(e.IdentifiedTemplateRecords);
                             }
                         };
                     newComp = RunGenerators(comp, out diagnostics, generator);
@@ -84,11 +84,11 @@ namespace Cjm.Templates.Test
                 {
                     using var generator = new TemplateInstantiator();
                     generator.TemplateInterfaceRecordsFound +=
-                        (sender, e) =>
+                        (_, e) =>
                         {
                             lock (expectedSyncObj)
                             {
-                                bldr.UnionWith(e.IdentifiedTemplateInterfaceRecords);
+                                bldr.UnionWith(e.IdentifiedTemplateRecords);
                             }
                         };
                     newComp = RunGenerators(comp, out diagnostics, generator);
@@ -105,6 +105,127 @@ namespace Cjm.Templates.Test
             Assert.Equal(x.ExpectedNumberHits, finalSet.Count);
             Assert.True(diagnostics.Count(dx => dx.Severity >= DiagnosticSeverity.Warning) == 0);
             Assert.True(x.FoundNames.SetEquals(finalSet.Select(r => r.TemplateName)));
+        }
+
+        [Fact]
+        public void TestEnumComparerImpl()
+        {
+            TemplateInterfaceExpectedResults x = Fixture.Lookup[TemplateInterfaceTestCaseIdentifier.EnumComparerImpl];
+            string code = x.Code;
+            Assert.NotEmpty(code);
+            Assert.NotNull(code);
+
+            Compilation comp = CreateCompilation(code);
+            Compilation newComp;
+            ImmutableArray<Diagnostic> diagnostics;
+            ImmutableHashSet<FoundTemplateInterfaceRecord> finalInterfaceSet;
+            ImmutableHashSet<FoundTemplateImplementationRecord> finalImplementationSet;
+
+            var expectedInterfSyncObj = new object();
+            var expectedImplSyncObject = new object();
+            {
+                
+                var interfBldr = ImmutableHashSet.CreateBuilder<FoundTemplateInterfaceRecord>();
+                var implBldr = ImmutableHashSet.CreateBuilder<FoundTemplateImplementationRecord>();
+                {
+                    using var generator = new TemplateInstantiator();
+                    generator.TemplateInterfaceRecordsFound +=
+                        (_, e) =>
+                        {
+                            lock (expectedInterfSyncObj)
+                            {
+                                interfBldr.UnionWith(e.IdentifiedTemplateRecords);
+                            }
+                        };
+                        generator.TemplateImplementationRecordsFound+=
+                        (_, e) =>
+                        {
+                            lock (expectedImplSyncObject)
+                            {
+                                implBldr.UnionWith(e.IdentifiedTemplateRecords);
+                            }
+                        };
+                    newComp = RunGenerators(comp, out diagnostics, generator);
+                    Thread.Sleep(TimeSpan.FromSeconds(0.5));
+                }
+                lock (expectedInterfSyncObj)
+                {
+                    finalInterfaceSet = interfBldr.ToImmutable();
+                    finalImplementationSet = implBldr.ToImmutable();
+                }
+            }
+
+            Assert.NotNull(newComp);
+            Assert.Equal(x.ExpectedNumberHits, finalInterfaceSet.Count + finalImplementationSet.Count);
+            Assert.True(diagnostics.Count(dx => dx.Severity >= DiagnosticSeverity.Warning) == 0);
+            Assert.True(x.FoundNames.SetEquals(finalImplementationSet.Select(v => v.ImplementationName)));
+        }
+
+        [Fact]
+        public void TestEnumInstant()
+        {
+            TemplateInterfaceExpectedResults x = Fixture.Lookup[TemplateInterfaceTestCaseIdentifier.EnumComparerInstant];
+            string code = x.Code;
+            Assert.NotEmpty(code);
+            Assert.NotNull(code);
+
+            Compilation comp = CreateCompilation(code);
+            Compilation newComp;
+            ImmutableArray<Diagnostic> diagnostics;
+            ImmutableHashSet<FoundTemplateInterfaceRecord> finalInterfaceSet;
+            ImmutableHashSet<FoundTemplateImplementationRecord> finalImplementationSet;
+            ImmutableHashSet<FoundTemplateInstantiationRecord> finalInstantiationSet;
+
+            var expectedInterfSyncObj = new object();
+            var expectedImplSyncObject = new object();
+            var expectedInstantSyncObject = new object();
+
+            {
+
+                var interfBldr = ImmutableHashSet.CreateBuilder<FoundTemplateInterfaceRecord>();
+                var implBldr = ImmutableHashSet.CreateBuilder<FoundTemplateImplementationRecord>();
+                var instantBldr = ImmutableHashSet.CreateBuilder<FoundTemplateInstantiationRecord>();
+                {
+                    using var generator = new TemplateInstantiator();
+                    generator.TemplateInterfaceRecordsFound +=
+                        (_, e) =>
+                        {
+                            lock (expectedInterfSyncObj)
+                            {
+                                interfBldr.UnionWith(e.IdentifiedTemplateRecords);
+                            }
+                        };
+                    generator.TemplateImplementationRecordsFound +=
+                        (_, e) =>
+                        {
+                            lock (expectedImplSyncObject)
+                            {
+                                implBldr.UnionWith(e.IdentifiedTemplateRecords);
+                            }
+                        };
+                    generator.TemplateInstantiationRecordsFound += (_, e) =>
+                    {
+                        lock (expectedInstantSyncObject)
+                        {
+                            instantBldr.UnionWith(e.IdentifiedTemplateRecords);
+                        }
+                    };
+                    newComp = RunGenerators(comp, out diagnostics, generator);
+                    Thread.Sleep(TimeSpan.FromSeconds(0.5));
+                }
+                lock (expectedInterfSyncObj)
+                {
+                    finalInterfaceSet = interfBldr.ToImmutable();
+                    finalImplementationSet = implBldr.ToImmutable();
+                    finalInstantiationSet = instantBldr.ToImmutable();
+                }
+            }
+
+            Assert.NotNull(newComp);
+            Assert.Equal(x.ExpectedNumberHits, finalInterfaceSet.Count + finalImplementationSet.Count + finalInstantiationSet.Count);
+            Assert.True(diagnostics.Count(dx => dx.Severity >= DiagnosticSeverity.Warning) == 0);
+            Assert.True(x.FoundNames.SetEquals(finalInstantiationSet.Select(v => v.InstantiationName)));
+
         }
 
         

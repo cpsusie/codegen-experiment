@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
@@ -15,7 +15,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="TemplateInterfaceTestCases\EnumComparerUncompilableImpl.cs" />
+    <Compile Remove="TemplateInterfaceTestCases\EnumComparerWithInstantiation.cs" />
     <Compile Remove="TemplateInterfaceTestCases\IEnumComparer.cs" />
+    <Compile Remove="TemplateInterfaceTestCases\IEnumComparerWithImpl.cs" />
     <Compile Remove="TemplateInterfaceTestCases\IEnumEqualityComparer.cs" />
   </ItemGroup>
 

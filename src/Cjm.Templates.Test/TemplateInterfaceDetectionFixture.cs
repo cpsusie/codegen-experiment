@@ -21,6 +21,15 @@ namespace Cjm.Templates.Test
                 .Select(itm =>
                     new KeyValuePair<TemplateInterfaceTestCaseIdentifier, TemplateInterfaceExpectedResults>(
                         itm.Identifier, itm)).ToImmutableSortedDictionary();
+            if (!AdditionalTemplatesRepository.AreTemplatesFixedNow)
+            {
+                AdditionalTemplatesRepository.SupplyAlternateTemplatesOrThrow(ExtraUncompilableTemplateImplementations());
+            }
+        }
+
+        public static IEnumerable<string> ExtraUncompilableTemplateImplementations()
+        {
+            yield return TestCasesTemplateInterface.EnumComparerUncompilableImpl;
         }
 
         private static IEnumerable<TemplateInterfaceExpectedResults> EnumerateResults()
@@ -30,6 +39,13 @@ namespace Cjm.Templates.Test
             yield return new TemplateInterfaceExpectedResults(TemplateInterfaceTestCaseIdentifier.EnumComparer, 1,
                 TemplateInterfaceTestCaseIdentifier.EnumComparer.ToString(), TestCasesTemplateInterface.IEnumComparer,
                 new[] { "IEnumComparer" }.CreateHashSet(TheComparer));
+            yield return new TemplateInterfaceExpectedResults(TemplateInterfaceTestCaseIdentifier.EnumComparerImpl,3,
+                TemplateInterfaceTestCaseIdentifier.EnumComparerImpl.ToString(),
+                 TestCasesTemplateInterface.IEnumComparer, new[] { "TotalOrderProviderImpl", "EnumComparerUncompilableImpl" }.CreateHashSet(TheComparer));
+            yield return new TemplateInterfaceExpectedResults(TemplateInterfaceTestCaseIdentifier.EnumComparerInstant, 4,
+                TemplateInterfaceTestCaseIdentifier.EnumComparerInstant.ToString(),
+                TestCasesTemplateInterface.EnumComparerWithInstantiation, new[] { "ForfKlorComparer" }.CreateHashSet(TheComparer));
+
         }
 
         private static readonly ImmutableSortedDictionary<TemplateInterfaceTestCaseIdentifier, TemplateInterfaceExpectedResults> TheLookup;
@@ -100,6 +116,8 @@ namespace Cjm.Templates.Test
     {
         NoHitCase = 0,
         EnumComparer,
+        EnumComparerImpl,
+        EnumComparerInstant,
     }
 
     public static class TemplateInterfaceTestCaseIdentifierExtensions

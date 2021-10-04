@@ -62,6 +62,58 @@ namespace Cjm.Templates.Test {
         
         /// <summary>
         ///   Looks up a localized string similar to using System;
+        ///using System.Collections.Generic;
+        ///using System.Linq;
+        ///using System.Runtime.CompilerServices;
+        ///using System.Text;
+        ///using System.Threading.Tasks;
+        ///using Cjm.Templates.Attributes;
+        ///using Cjm.Templates.Example;
+        ///
+        ///namespace Cjm.Templates.Test.TemplateInterfaceTestCases
+        ///{
+        ///    [CjmTemplateImplementation(typeof(IEnumComparer&lt;&gt;))]
+        ///    internal readonly struct EnumComparerUncompilableImpl&lt;TEnum&gt; : IEnumComparer&lt;TEnum&gt; where TEnum : unmanaged, Enum
+        ///    {
+        ///
+        ///        /// &lt;inheritdoc /&gt;
+        ///        [Met [rest of string was truncated]&quot;;.
+        /// </summary>
+        public static string EnumComparerUncompilableImpl {
+            get {
+                return ResourceManager.GetString("EnumComparerUncompilableImpl", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to using System;
+        ///using Cjm.Templates.Attributes;
+        ///using Cjm.Templates.ConstraintSpecifiers;
+        ///
+        ///namespace Cjm.Templates.Test.TemplateInterfaceTestCases
+        ///{
+        ///    public enum ForfKlor : ulong
+        ///    {
+        ///        FrimBazz = 0,
+        ///        RazzMatazz,
+        ///        Ruffles,
+        ///        Truffles, 
+        ///        Foofles,
+        ///        AlmostNarcs = ulong.MaxValue - 1,
+        ///        Narcs = ulong.MaxValue,
+        ///    }
+        ///
+        ///    [CjmTemplateInterface]
+        ///    [FundamentalTypeConstraintVariant(ValueTypeConstraintCode.Readonly | ValueTypeConstraintCode.Unmanage [rest of string was truncated]&quot;;.
+        /// </summary>
+        public static string EnumComparerWithInstantiation {
+            get {
+                return ResourceManager.GetString("EnumComparerWithInstantiation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to using System;
         ///using Cjm.Templates.Attributes;
         ///using Cjm.Templates.ConstraintSpecifiers;
         ///
@@ -76,6 +128,25 @@ namespace Cjm.Templates.Test {
         public static string IEnumComparer {
             get {
                 return ResourceManager.GetString("IEnumComparer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to using System;
+        ///using Cjm.Templates.Attributes;
+        ///using Cjm.Templates.ConstraintSpecifiers;
+        ///
+        ///namespace Cjm.Templates.Test.TemplateInterfaceTestCases
+        ///{
+        ///    [CjmTemplateInterface]
+        ///    [FundamentalTypeConstraintVariant(ValueTypeConstraintCode.Readonly | ValueTypeConstraintCode.Unmanaged | ValueTypeConstraintCode.NoInstanceFields)]
+        ///    public interface IEnumComparer&lt;[FundamentalTypeConstraintVariant(EnumConstraintType.AnyConcreteEnum)] TEnum&gt; where TEnum : unmanaged, Enum
+        ///    {
+        ///        bool Equals(TEnum x [rest of string was truncated]&quot;;.
+        /// </summary>
+        public static string IEnumComparerWithImpl {
+            get {
+                return ResourceManager.GetString("IEnumComparerWithImpl", resourceCulture);
             }
         }
         
