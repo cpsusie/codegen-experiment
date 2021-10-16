@@ -218,6 +218,7 @@ namespace Cjm.Templates.Utilities.SetOnce
         internal string DebuggerValue => $"{nameof(LocklessLazyWriteOnce<T>)} -- value: [" + (IsSet ? Value.ToString() : "NOT SET") + "].";
 
         private readonly Func<T> _generator;
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         private T? _value;
     }
 

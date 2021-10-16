@@ -136,4 +136,6 @@ namespace Cjm.Templates.Test
         private static ImmutableArray<TemplateInterfaceTestCaseIdentifier> InitDefinedValues() =>
             Enum.GetValues<TemplateInterfaceTestCaseIdentifier>().ToImmutableArray();
     }
+
+
 }

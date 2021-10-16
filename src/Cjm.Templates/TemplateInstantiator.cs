@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Cjm.Templates.Attributes;
@@ -11,6 +12,7 @@ using Cjm.Templates.Utilities.SetOnce;
 using JetBrains.Annotations;
 using LoggerLibrary;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using MonotonicContext = HpTimeStamps.MonotonicStampContext;
 
@@ -21,7 +23,7 @@ namespace Cjm.Templates
 
     public readonly record struct TypeParameterWithConstraints(int TypeArgumentIndex,
         string GenericIdentifier, ImmutableArray<AttributeData> TemplateConstraints, ImmutableHashSet<ITypeSymbol> NormalTypeConstraints);
-        
+
     public readonly record struct FoundTemplateImplementationRecord(string ImplementationName,
         TypeDeclarationSyntax DeclaringImplementation, AttributeSyntax TemplImplementationAttribute, string TemplateName, SyntaxTree ImplTree);
 
@@ -79,7 +81,7 @@ namespace Cjm.Templates
                 if (context.SyntaxReceiver is TemplateInstantiatorSyntaxReceiver tmplRcvr)
                 {
                     tmplRcvr.Freeze();
-                    
+                    ImmutableDictionary<FoundTemplateInstantiationRecord, ImmutableArray<Instantiator>> instantiatorLookup = ImmutableDictionary<FoundTemplateInstantiationRecord, ImmutableArray<Instantiator>>.Empty;
                     if (tmplRcvr.FoundInterfaceRecords.Any())
                     {
                         var stamp = StampSource.StampNow;
@@ -126,7 +128,12 @@ namespace Cjm.Templates
                         }
 
                         TraceLog.LogMessage($"Done logging the {tmplRcvr.FoundInstantiationRecords.Length} results. ");
-                        await ProcessInstantiations(context, tmplRcvr, context.CancellationToken);
+                        instantiatorLookup = await CreateInstantiators(context, tmplRcvr, context.CancellationToken);
+                    }
+
+                    if (instantiatorLookup.Any())
+                    {
+                        await ProcessInstantiationsAsync(instantiatorLookup, context, token);
                     }
                 }
             }
@@ -141,6 +148,67 @@ namespace Cjm.Templates
             }
         }
 
+        private Task ProcessInstantiationsAsync(
+            ImmutableDictionary<FoundTemplateInstantiationRecord, ImmutableArray<Instantiator>> instantiatorLookup,
+            GeneratorExecutionContext context, CancellationToken token) => Task.Run(async () =>
+        {
+            Task<string> instantiatorLogTask = LogInstantiators(instantiatorLookup, token);
+            ImmutableArray<Task<ImmutableArray<(SyntaxNode Node, Instantiator Instantiator)>>> processTask = instantiatorLookup.Values
+                .Select(val => ProcessInstantiation(val, context, token)).ToImmutableArray();
+            string logMe = await instantiatorLogTask;
+            TraceLog.LogMessage(logMe);
+            foreach (var task in processTask)
+            {
+                token.ThrowIfCancellationRequested();
+                await task;
+            }
+
+        }, token);
+
+        private Task<ImmutableArray<(SyntaxNode Node, Instantiator Instantiator)>> ProcessInstantiation(ImmutableArray<Instantiator> instantiators, GeneratorExecutionContext context,
+            CancellationToken token) => Task.Run(() =>
+        {
+
+            var bldr = ImmutableArray.CreateBuilder<(SyntaxNode Node, Instantiator Instantiator)>(instantiators.Length);
+            foreach (var instantiator in instantiators)
+            {
+                var rewriter = new TemplateInstantiationSyntaxRewriter(instantiator, context, true);
+                var root = instantiator.ImplData.ImplRecord.ImplTree.GetRoot();
+                
+                var x = rewriter.Visit(root);
+                if (x != root)
+                {
+                    bldr.Add((x, instantiator));
+                    TraceLog.LogMessage(x.GetText().ToString());
+                }
+            }
+            return bldr.Count == bldr.Capacity ? bldr.MoveToImmutable() : bldr.ToImmutable();
+
+        }, token);
+        
+
+        Task<string> LogInstantiators(
+            ImmutableDictionary<FoundTemplateInstantiationRecord, ImmutableArray<Instantiator>> lookup,
+            CancellationToken token) => Task.Run(() =>
+        {
+            token.ThrowIfCancellationRequested();
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine($"{lookup.Count} template instantiations were found: ");
+            foreach (var kvp in lookup)
+            {
+                int candidateCount = kvp.Value.Length;
+                sb.AppendLine($"\tThe instantiation [{kvp.Key}] has [{candidateCount}] candidates: ");
+                int counter = 0;
+                foreach (Instantiator item in kvp.Value)
+                {
+                    token.ThrowIfCancellationRequested();
+                    sb.AppendLine($"\t\tCandidate# {++counter} of {candidateCount}: \t\t{item}");
+                }
+                sb.AppendLine($"\tDone printing candidates for [{kvp.Key}]");
+            }
+            sb.AppendLine($"Done with logging the {lookup.Count} instantiations.");
+            return sb.ToString();
+        }, token);
         /// <inheritdoc />
         public void Dispose()
         {
@@ -152,59 +220,112 @@ namespace Cjm.Templates
 
 
 
-        private Task ProcessInstantiations(GeneratorExecutionContext context,
+        private Task<ImmutableDictionary<FoundTemplateInstantiationRecord, ImmutableArray<Instantiator>>> CreateInstantiators(GeneratorExecutionContext context,
             TemplateInstantiatorSyntaxReceiver receiver, CancellationToken token)
         {
             try
             {
-
-                ImmutableDictionary<FoundTemplateInterfaceRecord, TemplateInterfaceSemanticData> dict =
-                    (from item in receiver.FoundInterfaceRecords
-                        let tree = item.TemplateInterface.SyntaxTree
-                        where tree != null
-                        let model = context.Compilation.GetSemanticModel(tree, true)
-                        where TrueOrThrowIfCancReq(token)
-                        let interfaceSymbol = model.GetDeclaredSymbol(item.TemplateInterface) as INamedTypeSymbol
-                        where interfaceSymbol != null
-                        let typeParameters = ExtractInterfaceTArgsWithConstraints(interfaceSymbol.TypeParameters)
-                        select new KeyValuePair<FoundTemplateInterfaceRecord, TemplateInterfaceSemanticData>(item,
-                            new TemplateInterfaceSemanticData(interfaceSymbol, typeParameters)))
-                    .ToImmutableDictionary();
-
-
-
-
-
-               
-
-
-                foreach (var (instantiationName, typeDeclarationSyntax, interfaceOrImplToInstantiate, isInstantiationTargetTemplateInterface) in receiver.FoundInstantiationRecords)
+                var instantiators = ImmutableArray.CreateBuilder<KeyValuePair<FoundTemplateInstantiationRecord, Instantiator>>();
+                //ImmutableDictionary<FoundTemplateInterfaceRecord, TemplateInterfaceSemanticData> dict =
+                //    (from item in receiver.FoundInterfaceRecords
+                //        let tree = item.TemplateInterface.SyntaxTree
+                //        where tree != null
+                //        let model = context.Compilation.GetSemanticModel(tree, true)
+                //        where TrueOrThrowIfCancReq(token)
+                //        let interfaceSymbol = model.GetDeclaredSymbol(item.TemplateInterface) as INamedTypeSymbol
+                //        where interfaceSymbol != null
+                //        let typeParameters = ExtractInterfaceTArgsWithConstraints(interfaceSymbol.TypeParameters)
+                //        select new KeyValuePair<FoundTemplateInterfaceRecord, TemplateInterfaceSemanticData>(item,
+                //            new TemplateInterfaceSemanticData(interfaceSymbol, typeParameters)))
+                //    .ToImmutableDictionary();
+                
+                foreach (ref readonly FoundTemplateInstantiationRecord foundTemplateInstantiationRecord in receiver.FoundInstantiationRecords.WrapForByRefEnum())
                 {
-                    INamedTypeSymbol? targetImpl;
                     INamedTypeSymbol? targetInterface;
-                    var model = context.Compilation.GetSemanticModel(typeDeclarationSyntax.SyntaxTree, true);
-                    TypeInfo ts = model.GetTypeInfo(interfaceOrImplToInstantiate.Type);
+                    var model = context.Compilation.GetSemanticModel(foundTemplateInstantiationRecord.InstantiationDeclaration.SyntaxTree, true);
+                    TypeInfo ts = ModelExtensions.GetTypeInfo(model, foundTemplateInstantiationRecord.InterfaceOrImplToInstantiate.Type);
                     if (ts.ConvertedType is INamedTypeSymbol nts)
                     {
-                        if (isInstantiationTargetTemplateInterface)
+                        if (foundTemplateInstantiationRecord.IsInstantiationTargetTemplateInterface)
                         {
                             targetInterface = nts;
+                            token.ThrowIfCancellationRequested();
                             var candidates =
-                                FindCandidatesForInstantiation(nts, context, receiver, token, model).ToImmutableArray();
+                                FindCandidatesForInstantiation(nts, context, receiver, token).ToImmutableArray();
+                            token.ThrowIfCancellationRequested();
                             if (candidates.Any())
                             {
                                 DebugLog.LogMessage($"Found {candidates.Length} candidates.");
+                                foreach (var candidate in candidates)
+                                {
+                                    ImmutableArray<ITypeParameterSymbol> implementationParameterSymbols =
+                                        candidate.TemplateInterfaceTypeSymbol.TypeParameters.ToImmutableArray();
+                                    ImmutableArray<ITypeParameterSymbol> interfaceParameterSymbols =
+                                        targetInterface.TypeParameters.ToImmutableArray();
+                                    ImmutableArray<ITypeSymbol> symbolsToSub = ModelExtensions.GetSymbolInfo(model, foundTemplateInstantiationRecord.InterfaceOrImplToInstantiate.Type, token).Symbol is
+                                        INamedTypeSymbol toSubstitute
+                                        ? toSubstitute.TypeArguments.ToImmutableArray()
+                                        : ImmutableArray<ITypeSymbol>.Empty;
+                                    ImmutableArray<TypeParameterSyntax> implementationTypeParams =
+                                        candidate.ImplRecord.DeclaringImplementation.TypeParameterList?.Parameters
+                                            .ToImmutableArray() ?? ImmutableArray<TypeParameterSyntax>.Empty;
+                                    ImmutableArray<ITypeParameterSymbol?> symbols =
+                                        implementationTypeParams.Select(itm =>
+                                        model.GetSymbolInfo(itm).Symbol switch
+                                            {
+                                                null => null,
+                                                ITypeParameterSymbol tps => tps,
+                                                _ => null
+                                            }).ToImmutableArray();
+                                    token.ThrowIfCancellationRequested();
+                                    if (symbolsToSub.Length == implementationParameterSymbols.Length &&
+                                        implementationParameterSymbols.Length == interfaceParameterSymbols.Length &&
+                                        implementationTypeParams.Length == symbolsToSub.Length)
+                                    {
+                                        TraceLog.LogMessage("Symbol lengths match.");
+                                        instantiators.Add(new(foundTemplateInstantiationRecord,
+                                            Instantiator.CreateInstantiator(implementationTypeParams, symbolsToSub,
+                                                in foundTemplateInstantiationRecord, in candidate, targetInterface)));
+                                    }
+
+                                    //ImmutableArray<ITypeSymbol> instantiationSymbols = from item in interfaceOrImplToInstantiate
+                                    //    let sodel = context.Compilation.GetSemanticModel(item, true)
+                                        
+                                    DebugLog.LogMessage($"# of {nameof(implementationParameterSymbols)}: {implementationParameterSymbols.Length}");
+                                    DebugLog.LogMessage($"# of {nameof(interfaceParameterSymbols)}: {interfaceParameterSymbols.Length}");
+                                }
                             }
 
                         }
+                        
                     }
                 }
+                token.ThrowIfCancellationRequested();
+                var dictBldr = ImmutableDictionary
+                    .CreateBuilder<FoundTemplateInstantiationRecord, ImmutableArray<Instantiator>.Builder>();
+                foreach (var kvp in instantiators)
+                {
+                    if (!dictBldr.ContainsKey(kvp.Key))
+                    {
+                        dictBldr.Add(kvp.Key, ImmutableArray.CreateBuilder<Instantiator>());
+                    }
+                    dictBldr[kvp.Key].Add(kvp.Value);
+                }
+                token.ThrowIfCancellationRequested();
+                ImmutableDictionary<FoundTemplateInstantiationRecord, ImmutableArray<Instantiator>> ret = (from kvp in dictBldr
+                        let key = kvp.Key
+                        let value = kvp.Value
+                        select new KeyValuePair<FoundTemplateInstantiationRecord, ImmutableArray<Instantiator>>(key,
+                            value.Count == value.Capacity ? value.MoveToImmutable() : value.ToImmutable()))
+                    .ToImmutableDictionary();
+                return Task.FromResult(ret);
             }
             catch (OperationCanceledException)
             {
                 TraceLog.LogMessage(
-                    $"{nameof(TemplateInstantiator)}'s {nameof(ProcessInstantiations)} task was cancelled at [{StampSource.StampNow}] " +
+                    $"{nameof(TemplateInstantiator)}'s {nameof(CreateInstantiators)} task was cancelled at [{StampSource.StampNow}] " +
                     $"with a receiver payload of {receiver.FoundInstantiationRecords.Length} instantiations.");
+                throw;
             }
             catch (Exception ex)
             {
@@ -213,11 +334,11 @@ namespace Cjm.Templates
                 TraceLog.LogError(
                     $"Unexpected exception of type \"{ex.GetType().Name}\" with message " +
                     $"\"{ex.Message}\" was thrown at [{stamp.ToString()}] during execution " +
-                    $"of {nameof(TemplateInstantiator)}'s {nameof(ProcessInstantiations)} task.");
+                    $"of {nameof(TemplateInstantiator)}'s {nameof(CreateInstantiators)} task.");
                 throw;
             }
 
-            return Task.CompletedTask;
+         
         }
 
         private ImmutableArray<TypeParameterWithConstraints> ExtractInterfaceTArgsWithConstraints(
@@ -236,8 +357,9 @@ namespace Cjm.Templates
             return bldr.MoveToImmutable();
 
         }
-        private IEnumerable<FoundTemplateImplementationRecord> FindCandidatesForInstantiation(INamedTypeSymbol nts, GeneratorExecutionContext context, TemplateInstantiatorSyntaxReceiver receiver, CancellationToken token, SemanticModel model)
+        private IEnumerable<FoundTemplateImplementationRecordWithTypeSymbolData> FindCandidatesForInstantiation(INamedTypeSymbol nts, GeneratorExecutionContext context, TemplateInstantiatorSyntaxReceiver receiver, CancellationToken token)
         {
+            
             token.ThrowIfCancellationRequested();
             return  from item in receiver.FoundImplementationRecords
                 where item.TemplImplementationAttribute != null && TrueOrThrowIfCancReq(token)
@@ -249,9 +371,21 @@ namespace Cjm.Templates
                       Array.Empty<AttributeArgumentSyntax>()).FirstOrDefault()?.Expression as TypeOfExpressionSyntax)
                     ?.Type
                 where firstArg != null
-                let ti = context.Compilation.GetTypeByMetadataName(firstArg.ToString())
-                    where ti != null && SymbolEqualityComparer.Default.Equals(ti, nts)
-                select item;
+                let model = context.Compilation.GetSemanticModel(firstArg.SyntaxTree, true)
+                    where model != null && TrueOrThrowIfCancReq(token)
+                                let ti = ModelExtensions.GetTypeInfo(model, firstArg, token)
+                    where ti.ConvertedType != null && !nts.IsUnboundGenericType 
+                        let x = (ti.ConvertedType, nts) switch
+                        {
+                            ({}ct, {}symbol ) when SymbolEqualityComparer.Default
+                                .Equals(ti.ConvertedType, symbol) => (ValueTuple<INamedTypeSymbol, INamedTypeSymbol, INamedTypeSymbol>?) (ct, symbol, symbol),
+                            ({} ct, {}symbol) when SymbolEqualityComparer.Default
+                                .Equals(ti.ConvertedType, symbol.ConstructUnboundGenericType()) => (ValueTuple<INamedTypeSymbol, INamedTypeSymbol, 
+                                INamedTypeSymbol>?)(ct, symbol, symbol.ConstructUnboundGenericType()),
+                            _=> null
+                        }
+                    where x != null
+                select new FoundTemplateImplementationRecordWithTypeSymbolData(item, x.Value.Item1, x.Value.Item2, x.Value.Item3);
         }
 
         private static bool TrueOrThrowIfCancReq(CancellationToken token)

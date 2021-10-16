@@ -13,6 +13,8 @@ namespace Cjm.Templates.Utilities
         public static ImmutableArray<T> ValueOrEmptyIfDefault<T>(this ImmutableArray<T> checkMe) =>
             checkMe.IsDefault ? ImmutableArray<T>.Empty : checkMe;
 
+        public static ImmutableArrayByRefAdapter<T> WrapForByRefEnum<T>(this ImmutableArray<T> arr) => arr;
+
     }
 
     public sealed class UninitializedStructAccessException<T> : InvalidOperationException where T : struct
