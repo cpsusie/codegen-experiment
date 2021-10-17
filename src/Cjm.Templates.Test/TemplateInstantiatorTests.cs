@@ -211,7 +211,6 @@ namespace Cjm.Templates.Test
                         }
                     };
                     newComp = RunGenerators(comp, out diagnostics, generator);
-                    Thread.Sleep(TimeSpan.FromSeconds(0.5));
                 }
                 lock (expectedInterfSyncObj)
                 {

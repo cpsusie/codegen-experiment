@@ -1,19 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Cjm.Templates.Attributes;
 using Cjm.Templates.Utilities;
-using Cjm.Templates.Utilities.SetOnce;
-using JetBrains.Annotations;
 using LoggerLibrary;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Text;
 using MonotonicContext = HpTimeStamps.MonotonicStampContext;
 
 namespace Cjm.Templates
@@ -39,6 +37,11 @@ namespace Cjm.Templates
         public event EventHandler<TemplateRecordsIdentifiedEventArgs<FoundTemplateInterfaceRecord>>? TemplateInterfaceRecordsFound;
         public event EventHandler<TemplateRecordsIdentifiedEventArgs<FoundTemplateImplementationRecord>>? TemplateImplementationRecordsFound;
         public event EventHandler<TemplateRecordsIdentifiedEventArgs<FoundTemplateInstantiationRecord>>? TemplateInstantiationRecordsFound;
+
+        public ImmutableSortedDictionary<string, UncompilableTemplateData> UncompilableTemplateAsts =>
+            _extraSources.IsSet
+                ? _extraSources.Value
+                : ImmutableSortedDictionary<string, UncompilableTemplateData>.Empty;
         public TemplateInstantiator() => _pump = EventPumpFactorySource.FactoryInstance(GetNextThreadName());
 
         /// <inheritdoc />
@@ -54,18 +57,11 @@ namespace Cjm.Templates
         {
             if (!_extraSources.IsSet)
             {
-                int count = 0;
-                var dict = ImmutableSortedDictionary.CreateBuilder<string, string>(TrimmedStringComparer
-                    .TrimmedOrdinalIgnoreCase);
-                foreach (string src in AdditionalTemplatesRepository.AdditionalTemplates)
-                {
-                    string name = count.ToString();
-                    obj.AddSource(name, src);
-                    dict.Add(name, src);
-                    ++count;
-                }
+                var retriever = new UncompilableTemplateRetriever(obj);
+                var dict = retriever.RetrieveTemplates();
+               
 
-                bool setIt = _extraSources.TrySet(dict.ToImmutable());
+                bool setIt = _extraSources.TrySet(dict);
                 if (!setIt && !_extraSources.IsSet)
                     throw new InvalidOperationException("Unable to verify setting of extra sources.");
             }
@@ -80,6 +76,18 @@ namespace Cjm.Templates
                 CancellationToken token = context.CancellationToken;
                 if (context.SyntaxReceiver is TemplateInstantiatorSyntaxReceiver tmplRcvr)
                 {
+                    var extraSources = UncompilableTemplateAsts;
+                    foreach (var ast in extraSources.Values)
+                    {
+                        if (ast.SyntaxTree != null)
+                        {
+                            foreach (SyntaxNode n in ast.SyntaxTree.DescendantNodesAndSelf())
+                            {
+                                tmplRcvr.OnVisitSyntaxNode(n);
+                            }
+                        }
+                    }
+
                     tmplRcvr.Freeze();
                     ImmutableDictionary<FoundTemplateInstantiationRecord, ImmutableArray<Instantiator>> instantiatorLookup = ImmutableDictionary<FoundTemplateInstantiationRecord, ImmutableArray<Instantiator>>.Empty;
                     if (tmplRcvr.FoundInterfaceRecords.Any())
@@ -131,9 +139,24 @@ namespace Cjm.Templates
                         instantiatorLookup = await CreateInstantiators(context, tmplRcvr, context.CancellationToken);
                     }
 
+                    
+
                     if (instantiatorLookup.Any())
                     {
-                        await ProcessInstantiationsAsync(instantiatorLookup, context, token);
+                        ImmutableArray<ImmutableArray<(SyntaxNode Node, Instantiator Instantiator)>> results = await ProcessInstantiationsAsync(instantiatorLookup, context, token);
+                        ImmutableDictionary<FoundTemplateInstantiationRecord, ImmutableHashSet<SyntaxNode>> condensed = Condense(results, context.CancellationToken);
+                        ImmutableDictionary<FoundTemplateInstantiationRecord, SyntaxNode> useUs =
+                            (await GenerateCodeFromCondensed(condensed, context)).Where(kvp => kvp.Value != null)
+                            .Select(kvp =>
+                                new KeyValuePair<FoundTemplateInstantiationRecord, SyntaxNode>(kvp.Key, kvp.Value!))
+                            .ToImmutableDictionary();
+
+                        foreach (var item in useUs)
+                        {
+                            string hint = item.Key.InstantiationName.Trim();
+                            string text = item.Value.GetText().ToString();
+                            context.AddSource(hint, text);
+                        }
                     }
                 }
             }
@@ -148,7 +171,62 @@ namespace Cjm.Templates
             }
         }
 
-        private Task ProcessInstantiationsAsync(
+        private Task<ImmutableDictionary<FoundTemplateInstantiationRecord, SyntaxNode?>> GenerateCodeFromCondensed(
+            ImmutableDictionary<FoundTemplateInstantiationRecord, ImmutableHashSet<SyntaxNode>> lookup, GeneratorExecutionContext context)
+        {
+            ImmutableDictionary<FoundTemplateInstantiationRecord, SyntaxNode?> ret =
+                ImmutableDictionary<FoundTemplateInstantiationRecord, SyntaxNode?>.Empty;
+            {
+                var bldr = ImmutableDictionary.CreateBuilder<FoundTemplateInstantiationRecord, SyntaxNode?>();
+                foreach (var item in lookup)
+                {
+                    TraceLog.LogMessage(
+                        $"For template instantiation {item.Key.InstantiationName}, {item.Value.Count} potential implementations were identified.");
+                    SyntaxNode? firstCandidate = item.Value.FirstOrDefault();
+                    if (firstCandidate == null)
+                    {
+                        TraceLog.LogError($"NO CANDIDATES FOUND FOR INSTANTIATION {item.Key.InstantiationName}");
+                    }
+                    bldr.Add(item.Key, firstCandidate);
+                }
+                ret = bldr.ToImmutable();
+            }
+            return Task.FromResult(ret);
+        }
+
+        private ImmutableDictionary<FoundTemplateInstantiationRecord, ImmutableHashSet<SyntaxNode>> Condense(
+            ImmutableArray<ImmutableArray<(SyntaxNode Node, Instantiator Instantiator)>> condenseUs, CancellationToken token)
+        {
+            ImmutableDictionary<FoundTemplateInstantiationRecord, ImmutableHashSet<SyntaxNode>> ret;
+
+            {
+                var bldr = ImmutableDictionary
+                    .CreateBuilder<FoundTemplateInstantiationRecord, ImmutableHashSet<SyntaxNode>>();
+                ImmutableHashSet<FoundTemplateInstantiationRecord> uniqueInstantiations = (from arr in condenseUs
+                    from item in arr
+                    let instantRec = item.Instantiator.InstantiationRecord
+                    select instantRec).ToImmutableHashSet();
+                TraceLog.LogMessage(
+                    $"In current compilation unit, found {uniqueInstantiations.Count} templates to instantiate.");
+                token.ThrowIfCancellationRequested();
+
+                foreach (var item in uniqueInstantiations)
+                {
+                    ImmutableHashSet<SyntaxNode> set = (from arr in condenseUs
+                        from tuple in arr
+                        let key = tuple.Instantiator.InstantiationRecord
+                        where key == item
+                        select tuple.Node).ToImmutableHashSet();
+                    bldr.Add(item, set);
+                }
+                token.ThrowIfCancellationRequested();
+                ret = bldr.ToImmutable();
+            }
+            return ret;
+
+        }
+
+        private Task<ImmutableArray<ImmutableArray<(SyntaxNode Node, Instantiator Instantiator)>>> ProcessInstantiationsAsync(
             ImmutableDictionary<FoundTemplateInstantiationRecord, ImmutableArray<Instantiator>> instantiatorLookup,
             GeneratorExecutionContext context, CancellationToken token) => Task.Run(async () =>
         {
@@ -157,12 +235,20 @@ namespace Cjm.Templates
                 .Select(val => ProcessInstantiation(val, context, token)).ToImmutableArray();
             string logMe = await instantiatorLogTask;
             TraceLog.LogMessage(logMe);
-            foreach (var task in processTask)
-            {
-                token.ThrowIfCancellationRequested();
-                await task;
-            }
 
+            ImmutableArray <ImmutableArray<(SyntaxNode Node, Instantiator Instantiator)>> results;
+            {
+                var bldr = ImmutableArray
+                    .CreateBuilder<ImmutableArray<(SyntaxNode Node, Instantiator Instantiator)>>(processTask.Length);
+                foreach (var task in processTask)
+                {
+                    token.ThrowIfCancellationRequested();
+                    ImmutableArray<(SyntaxNode Node, Instantiator Instantiator)> temp = await task;
+                    bldr.Add( temp);
+                }
+                results = bldr.Count == bldr.Capacity ? bldr.MoveToImmutable() : bldr.ToImmutable();
+            }
+            return results;
         }, token);
 
         private Task<ImmutableArray<(SyntaxNode Node, Instantiator Instantiator)>> ProcessInstantiation(ImmutableArray<Instantiator> instantiators, GeneratorExecutionContext context,
@@ -439,7 +525,7 @@ namespace Cjm.Templates
             string.Format(EventPumpThreadNameFrmtStr, ThreadNamePrefix, TheULongProvider.NextValue);
         private readonly IEventPump _pump;
         private LocklessSetOnlyFlag _disposed;
-        private readonly LocklessWriteOnce<ImmutableSortedDictionary<string, string>> _extraSources = new();
+        private readonly LocklessWriteOnce<ImmutableSortedDictionary<string, UncompilableTemplateData>> _extraSources = new();
         private static readonly AtomicULongProvider TheULongProvider = new();
         private const string EventPumpThreadNameFrmtStr
             = "{0}_{1}";
@@ -447,85 +533,5 @@ namespace Cjm.Templates
 
 
       
-    }
-
-    sealed class LocklessWriteOnce<T> where T : class
-    {
-        public bool IsSet
-        {
-            get
-            {
-                T? test = Volatile.Read(ref _value);
-                return test != null;
-            }
-        }
-
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        public T Value
-        {
-            get
-            {
-                T? test = _value;
-                return test ?? throw new InvalidOperationException("The value has not yet been set.");
-            }
-        }
-
-        public bool TrySet(T val)
-        {
-            if (val == null) throw new ArgumentNullException(nameof(val));
-            return Interlocked.CompareExchange(ref _value, val, null) == null;
-        }
-
-        public void SetOrThrow(T val)
-        {
-            if (val == null) throw new ArgumentNullException(nameof(val));
-            if (!TrySet(val))
-            {
-                Debug.Assert(_value != null);
-                throw new LocklessFlagAlreadySetException<T>(val, _value!);
-            }
-        }
-
-        /// <inheritdoc />
-        public override string ToString() => $"[{nameof(LocklessWriteOnce<T>)}] -- " +
-                                             (IsSet ? $"\tValue: \t[{Value}]." : "[NOT SET].");
-        
-
-        private T? _value;
-    }
-
-    internal struct LocklessNonZeroInteger
-    {
-        public readonly bool IsSet
-        {
-            get
-            {
-                int val = _value;
-                return val != 0;
-            }
-        }
-
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        public int Value => IsSet ? _value : throw new InvalidOperationException("The value has not been set yet.");
-
-        public bool TrySet(int wantToBe)
-        {
-            if (wantToBe == 0) throw new ArgumentException(@"Value cannot be zero.", nameof(wantToBe));
-            const int needToBeNow = 0;
-            return Interlocked.CompareExchange(ref _value, wantToBe, needToBeNow) == needToBeNow;
-        }
-
-        public void SetOrThrow(int wantToBe)
-        {
-            if (wantToBe == 0) throw new ArgumentException(@"Value cannot be zero.", nameof(wantToBe));
-            if (!TrySet(wantToBe))
-            {
-                throw new LocklessFlagAlreadySetException<int>(wantToBe, _value);
-            }
-        }
-
-        public override readonly string ToString() => $"[{nameof(LocklessNonZeroInteger)}] -- " +
-                                                      (IsSet ? $"\tValue: \t[{_value}]." : "[NOT SET].");
-        private volatile int _value;
     }
 }
